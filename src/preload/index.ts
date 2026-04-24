@@ -1,8 +1,33 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// Custom APIs for renderer
-const api = {}
+const api = {
+  windowControls: {
+    minimize: (): void => ipcRenderer.send('window:minimize'),
+    toggleMaximize: (): void => ipcRenderer.send('window:toggle-maximize'),
+    close: (): void => ipcRenderer.send('window:close'),
+    onMaximizedChanged: (callback: (maximized: boolean) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, maximized: boolean): void => {
+        callback(maximized)
+      }
+      ipcRenderer.on('window:maximized-changed', handler)
+      return () => ipcRenderer.removeListener('window:maximized-changed', handler)
+    }
+  },
+  openFolder: () => ipcRenderer.invoke('workspace:openFolder'),
+  scanFiles: (rootPath: string) => ipcRenderer.invoke('workspace:scanFiles', rootPath),
+  readFile: (rootPath: string, relativePath: string) =>
+    ipcRenderer.invoke('workspace:readFile', rootPath, relativePath),
+  readAsset: (rootPath: string, relativePath: string) =>
+    ipcRenderer.invoke('workspace:readAsset', rootPath, relativePath),
+  watchWorkspace: (rootPath: string) => ipcRenderer.invoke('workspace:watch', rootPath),
+  unwatchWorkspace: (rootPath: string) => ipcRenderer.invoke('workspace:unwatch', rootPath),
+  onFilesChanged: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('workspace:filesChanged', handler)
+    return () => ipcRenderer.removeListener('workspace:filesChanged', handler)
+  }
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise

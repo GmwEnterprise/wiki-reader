@@ -2,6 +2,7 @@ import { shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { getWindowShortcutAction } from './window-shortcuts'
 
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -12,7 +13,9 @@ export function createMainWindow(): BrowserWindow {
     title: 'Wiki Reader',
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
+    frame: false,
+    backgroundColor: '#fafafa',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -28,6 +31,25 @@ export function createMainWindow(): BrowserWindow {
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  win.webContents.on('before-input-event', (event, input) => {
+    const action = getWindowShortcutAction(input, is.dev)
+
+    if (action === 'prevent-default') {
+      event.preventDefault()
+      return
+    }
+
+    if (action === 'toggle-devtools') {
+      event.preventDefault()
+
+      if (win.webContents.isDevToolsOpened()) {
+        win.webContents.closeDevTools()
+      } else {
+        win.webContents.openDevTools({ mode: 'undocked' })
+      }
+    }
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {

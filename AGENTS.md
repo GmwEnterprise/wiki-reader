@@ -7,6 +7,7 @@
 因此：
 
 - **只负责代码生成和文件编辑**，不执行 `npm install`、`npm run dev`、`npm run build` 等需要运行时环境的命令。
+- 当前项目要求使用 `pnpm` 脚本，不使用或要求使用 `npm`。
 - 不执行 `npx electron` 相关命令。
 - 不执行需要 native 模块编译的命令（如 `node-pty`、`electron` 的安装）。
 - 所有验证性命令（启动、编译、测试运行）交给用户在宿主机 Windows 终端中手动执行。
@@ -42,7 +43,8 @@ wiki-reader/
 │       ├── index.html
 │       └── src/
 │           ├── App.tsx       # 根组件与布局
-│           ├── App.css       # 全局样式与 CSS 变量
+│           ├── App.css       # 全局样式与基础 CSS 变量
+│           ├── sidebar.css   # 侧栏模块样式（变量+规则）
 │           ├── main.tsx      # React 入口
 │           ├── types.ts      # 类型定义
 │           ├── env.d.ts      # 环境类型声明
@@ -82,15 +84,22 @@ wiki-reader/
 - 主进程代码放在 `src/main/`，预加载脚本放在 `src/preload/`，渲染进程代码放在 `src/renderer/`。
 - 使用 TypeScript strict 模式。
 - 渲染进程通过 `contextBridge` 暴露的 API 访问本地能力，不直接使用 Node.js API。
-- CSS 使用 CSS 变量管理主题色，定义在 `App.css` 的 `:root` 中。
 - 组件使用函数式组件和 Hooks。
 
-## 可用 npm 脚本（供用户在宿主机执行）
+### CSS 样式组织与可替换设计
+
+- **全局变量**（颜色、间距等基础 token）定义在 `App.css` 的 `:root` 中。
+- **模块样式独立文件**：每个 UI 模块（侧栏、工具栏、编辑器、终端等）的样式集中到各自独立的 CSS 文件中（如 `sidebar.css`），不在 `App.css` 中混写。
+- **模块 CSS 变量层**：每个模块 CSS 文件在 `:root` 中定义一组 `--{模块名}-*` 变量（如侧栏的 `--sidebar-bg`、`--sidebar-node-indent`），所有硬编码值通过变量引用。第三方样式只需覆盖这些变量或对应选择器即可替换整个模块外观。
+- **避免内联样式**：不在 TSX 中用 `style={{ ... }}` 传递视觉样式值。需要组件动态控制的值（如树形缩进深度），通过 CSS 变量传递（`style={{ '--node-depth': depth }}`），实际样式计算留在 CSS 中完成。
+- **新增模块时**：创建独立的 `{模块名}.css`，在 `main.tsx` 中导入，遵循相同的变量分层模式。
+
+## 可用 pnpm 脚本（供用户在宿主机执行）
 
 ```bash
-npm run dev        # 启动开发服务器
-npm run build      # 构建应用
-npm run preview    # 预览构建结果
-npm run test       # 运行测试
-npm run test:watch # 监听模式运行测试
+pnpm dev        # 启动开发服务器
+pnpm build      # 构建应用
+pnpm preview    # 预览构建结果
+pnpm test       # 运行测试
+pnpm test:watch # 监听模式运行测试
 ```

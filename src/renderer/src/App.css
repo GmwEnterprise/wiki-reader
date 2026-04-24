@@ -37,11 +37,12 @@ body,
 }
 
 .toolbar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 40px;
-  padding: 0 12px;
+  padding: 0 0 0 12px;
   background: var(--bg-toolbar);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -54,16 +55,135 @@ body,
   display: flex;
   align-items: center;
   gap: 8px;
+  z-index: 1;
 }
 
 .toolbar-title {
+  position: absolute;
+  left: 50%;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13px;
   font-weight: 600;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .toolbar-status {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.window-controls {
+  display: flex;
+  align-self: flex-start;
+  margin-left: 12px;
+  -webkit-app-region: no-drag;
+}
+
+.window-control-button {
+  position: relative;
+  width: 46px;
+  height: 32px;
+  border: 0;
+  color: var(--text);
+  background: var(--bg-toolbar);
+  -webkit-app-region: no-drag;
+}
+
+.window-control-button:hover {
+  background: #e8e8e8;
+}
+
+.window-control-button:active {
+  background: #dcdcdc;
+}
+
+.window-control-close:hover {
+  color: #ffffff;
+  background: #e81123;
+}
+
+.window-control-close:active {
+  color: #ffffff;
+  background: #f1707a;
+}
+
+.window-control-minimize,
+.window-control-maximize,
+.window-control-restore,
+.window-control-close-icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+}
+
+.window-control-minimize::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  top: 6px;
+  height: 1px;
+  background: currentColor;
+}
+
+.window-control-maximize::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+}
+
+.window-control-restore::before,
+.window-control-restore::after {
+  content: '';
+  position: absolute;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+}
+
+.window-control-restore::before {
+  left: 0;
+  top: 3px;
+  width: 7px;
+  height: 7px;
+}
+
+.window-control-restore::after {
+  left: 3px;
+  top: 0;
+  width: 7px;
+  height: 7px;
+  background: var(--bg-toolbar);
+}
+
+.window-control-close-icon::before,
+.window-control-close-icon::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 5.5px;
+  width: 12px;
+  height: 1.5px;
+  background: currentColor;
+}
+
+.window-control-close-icon::before {
+  transform: rotate(45deg);
+}
+
+.window-control-close-icon::after {
+  transform: rotate(-45deg);
 }
 
 .body {
@@ -72,17 +192,6 @@ body,
   overflow: hidden;
 }
 
-.sidebar {
-  width: 240px;
-  min-width: 200px;
-  max-width: 400px;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
-  overflow-y: auto;
-  flex-shrink: 0;
-}
-
-.sidebar-empty,
 .content-empty {
   display: flex;
   align-items: center;
@@ -95,4 +204,72 @@ body,
 .content {
   flex: 1;
   overflow-y: auto;
+}
+
+.toolbar-menu {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-menu-button {
+  width: 32px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-menu-button:hover,
+.toolbar-menu-button[aria-expanded='true'] {
+  background: #ececec;
+  border-color: var(--border);
+}
+
+.toolbar-menu-panel {
+  position: absolute;
+  left: 0;
+  top: 32px;
+  min-width: 148px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-menu-item {
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.toolbar-menu-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.content-text {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.content-text pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'SF Mono', 'Consolas', 'Liberation Mono', monospace;
+  font-size: 14px;
+  line-height: 1.6;
 }
