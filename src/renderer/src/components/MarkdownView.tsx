@@ -63,6 +63,7 @@ function isLocalLink(href: string): boolean {
 
 export default function MarkdownView({ source, currentFilePath, workspaceRootPath, files, onOpenFile }: MarkdownViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const loadingRef = useRef<Set<string>>(new Set())
   const imageContextKey = `${workspaceRootPath ?? ''}\u0000${currentFilePath ?? ''}`
   const [loadedImages, setLoadedImages] = useState<{ key: string; urls: Record<string, string> }>({
     key: imageContextKey,
@@ -137,12 +138,19 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
       })
     }
 
-    const localSrcs = collectLocalImageSrcs(renderedHtml).filter((src) => !activeImageUrls[src])
+    const localSrcs = collectLocalImageSrcs(renderedHtml).filter(
+      (src) => !activeImageUrls[src] && !loadingRef.current.has(src)
+    )
     if (localSrcs.length === 0) return
+
+    for (const localSrc of localSrcs) {
+      loadingRef.current.add(localSrc)
+    }
 
     for (const localSrc of localSrcs) {
       const setImageSrc = (src: string): void => {
         if (cancelled) return
+        loadingRef.current.delete(localSrc)
         setLoadedImages((current) => ({
           key: imageContextKey,
           urls: {
@@ -189,6 +197,9 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
 
     return () => {
       cancelled = true
+      for (const localSrc of localSrcs) {
+        loadingRef.current.delete(localSrc)
+      }
     }
   }, [activeImageUrls, currentFilePath, imageContextKey, renderedHtml, workspaceRootPath])
 

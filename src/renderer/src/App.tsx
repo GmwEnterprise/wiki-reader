@@ -54,7 +54,16 @@ function App(): React.JSX.Element {
 
   useEffect(() => {
     const unsubscribe = window.api.onBeforeClose(async () => {
-      await flushSave()
+      try {
+        await Promise.race([
+          flushSave(),
+          new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error('save timeout')), 2000)
+          )
+        ])
+      } catch {
+        // 超时或出错，跳过保存
+      }
       window.api.confirmClose()
     })
     return unsubscribe

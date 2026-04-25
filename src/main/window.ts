@@ -28,9 +28,21 @@ export function createMainWindow(): BrowserWindow {
     win.show()
   })
 
+  const CLOSE_TIMEOUT = 3000
+
   win.on('close', (e) => {
     e.preventDefault()
     win.webContents.send('window:before-close')
+
+    const timer = setTimeout(() => {
+      if (!win.isDestroyed()) {
+        win.destroy()
+      }
+    }, CLOSE_TIMEOUT)
+
+    win.once('closed', () => {
+      clearTimeout(timer)
+    })
   })
 
   win.webContents.setWindowOpenHandler((details) => {

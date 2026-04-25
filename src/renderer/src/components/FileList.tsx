@@ -150,7 +150,7 @@ export default function FileList({ files, selectedPath, onSelect }: FileListProp
       </div>
       {tree.map((node) => (
         <FileTreeNodeComponent
-          key={node.name}
+          key={node.relativePath}
           node={node}
           depth={0}
           selectedPath={selectedPath}
@@ -210,7 +210,7 @@ function FileTreeNodeComponent({
       {isDir && !isCollapsed &&
         node.children.map((child) => (
           <FileTreeNodeComponent
-            key={child.name}
+            key={child.relativePath}
             node={child}
             depth={depth + 1}
             selectedPath={selectedPath}
