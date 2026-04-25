@@ -23,6 +23,7 @@ interface PtyEntry {
   windowId: number
 }
 
+// 当前多终端功能只覆盖单窗口场景；Phase 7 多窗口接入时，key 需要改为 windowId + terminalId。
 const ptyInstances = new Map<number, PtyEntry>()
 const windowCleanupRegistered = new Set<number>()
 
@@ -47,6 +48,10 @@ function getDefaultShell(): string {
   return process.env.SHELL || '/bin/bash'
 }
 
+export function getTerminalProcessName(shell: string): string {
+  return path.basename(shell)
+}
+
 function ensureWindowCleanup(win: BrowserWindow): void {
   const windowId = win.id
   if (windowCleanupRegistered.has(windowId)) return
@@ -61,9 +66,9 @@ export function createTerminal(
   win: BrowserWindow,
   cwd: string | null,
   id: number
-): string | null {
+): { error?: string; processName?: string } | null {
   if (!pty) {
-    return '终端不可用：node-pty 模块加载失败'
+    return { error: '终端不可用：node-pty 模块加载失败' }
   }
   if (ptyInstances.has(id)) {
     return null
@@ -81,7 +86,7 @@ export function createTerminal(
       env: { ...process.env } as Record<string, string>
     })
   } catch (err: any) {
-    return `终端启动失败: ${err.message}`
+    return { error: `终端启动失败: ${err.message}` }
   }
 
   ptyProcess.onData((data: string) => {
@@ -91,6 +96,9 @@ export function createTerminal(
   })
 
   ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
+    const current = ptyInstances.get(id)
+    if (current?.process !== ptyProcess) return
+
     if (!win.isDestroyed()) {
       win.webContents.send('terminal:exit', id, exitCode)
     }
@@ -99,7 +107,9 @@ export function createTerminal(
 
   ptyInstances.set(id, { process: ptyProcess, windowId: win.id })
   ensureWindowCleanup(win)
-  return null
+
+  const processName = getTerminalProcessName(shell)
+  return { processName }
 }
 
 export function terminalWrite(id: number, data: string): boolean {

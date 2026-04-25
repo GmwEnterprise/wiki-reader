@@ -73,8 +73,7 @@ export function registerIpcHandlers(): void {
     if (typeof id !== 'number' || (cwd !== null && typeof cwd !== 'string')) return null
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return { error: '窗口不存在' }
-    const error = createTerminal(win, cwd, id)
-    return error ? { error } : null
+    return createTerminal(win, cwd, id)
   })
 
   ipcMain.handle('terminal:write', (_event, id: number, data: string) => {
