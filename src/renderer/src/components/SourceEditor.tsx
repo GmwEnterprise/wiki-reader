@@ -9,13 +9,18 @@ type SourceEditorProps = {
   content: string
   onChange: (value: string) => void
   onSave: () => void
+  onEscape: () => void
 }
 
-export default function SourceEditor({ content, onChange, onSave }: SourceEditorProps) {
+export default function SourceEditor({ content, onChange, onSave, onEscape }: SourceEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+  const onSaveRef = useRef(onSave)
+  onSaveRef.current = onSave
+  const onEscapeRef = useRef(onEscape)
+  onEscapeRef.current = onEscape
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -34,7 +39,14 @@ export default function SourceEditor({ content, onChange, onSave }: SourceEditor
           {
             key: 'Mod-s',
             run: () => {
-              onSave()
+              onSaveRef.current()
+              return true
+            }
+          },
+          {
+            key: 'Escape',
+            run: () => {
+              onEscapeRef.current()
               return true
             }
           }

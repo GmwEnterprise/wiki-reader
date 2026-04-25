@@ -9,11 +9,13 @@ export function useDocument(workspaceRootPath: string | null) {
     content: '',
     originalContent: '',
     mode: 'preview',
-    dirty: false
+    dirty: false,
+    loading: false
   })
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const docRef = useRef(doc)
   docRef.current = doc
+  const loadSeqRef = useRef(0)
 
   const saveCurrentDoc = useCallback(async () => {
     const current = docRef.current
@@ -43,16 +45,21 @@ export function useDocument(workspaceRootPath: string | null) {
   const loadContent = useCallback(
     async (file: WikiFile) => {
       if (!workspaceRootPath) return
+      const seq = ++loadSeqRef.current
       cancelAutoSave()
       await saveCurrentDoc()
+      if (seq !== loadSeqRef.current) return
+      setDoc((prev) => ({ ...prev, loading: true }))
       const result = await window.api.readFile(workspaceRootPath, file.relativePath)
+      if (seq !== loadSeqRef.current) return
       if (result.success && result.content !== undefined) {
         setDoc({
           file,
           content: result.content,
           originalContent: result.content,
           mode: 'preview',
-          dirty: false
+          dirty: false,
+          loading: false
         })
       } else {
         setDoc({
@@ -60,7 +67,8 @@ export function useDocument(workspaceRootPath: string | null) {
           content: `读取失败: ${result.error}`,
           originalContent: '',
           mode: 'preview',
-          dirty: false
+          dirty: false,
+          loading: false
         })
       }
     },
@@ -93,7 +101,7 @@ export function useDocument(workspaceRootPath: string | null) {
 
   const reset = useCallback(() => {
     cancelAutoSave()
-    setDoc({ file: null, content: '', originalContent: '', mode: 'preview', dirty: false })
+    setDoc({ file: null, content: '', originalContent: '', mode: 'preview', dirty: false, loading: false })
   }, [cancelAutoSave])
 
   return { doc, loadContent, updateContent, flushSave, setMode, reset }

@@ -12,12 +12,17 @@ function App(): React.JSX.Element {
     workspace?.rootPath ?? null
   )
   const { headings, activeId, setupObserver, jumpToHeading } = useHeadings(doc.content)
-  const [sidebarWidth, setSidebarWidth] = useState(240)
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem('sidebar-width')
+    return saved ? Math.min(window.innerWidth / 2, Math.max(200, Number(saved))) : 240
+  })
   const [isMaximized, setIsMaximized] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const isResizing = useRef(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+  const scrollPositionRef = useRef<number>(0)
+  const contentBodyRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     return window.api.windowControls.onMaximizedChanged(setIsMaximized)
@@ -39,6 +44,9 @@ function App(): React.JSX.Element {
     (e: React.MouseEvent) => {
       if (!doc.file) return
       e.preventDefault()
+      if (contentBodyRef.current) {
+        scrollPositionRef.current = contentBodyRef.current.scrollTop
+      }
       setMode(doc.mode === 'preview' ? 'source' : 'preview')
     },
     [doc.file, doc.mode, setMode]
@@ -66,15 +74,17 @@ function App(): React.JSX.Element {
     [loadContent]
   )
 
-  const contentRefCallback = useCallback(
-    (el: HTMLDivElement | null) => {
-      contentRef.current = el
-      if (doc.mode === 'preview' && doc.file) {
-        setupObserver(el)
-      }
-    },
-    [doc.mode, doc.file, setupObserver]
-  )
+  useEffect(() => {
+    if (doc.mode === 'preview' && doc.file && contentRef.current) {
+      setupObserver(contentRef.current)
+    }
+  }, [doc.mode, doc.file, setupObserver])
+
+  useEffect(() => {
+    if (doc.mode === 'preview' && doc.file && contentBodyRef.current) {
+      contentBodyRef.current.scrollTop = scrollPositionRef.current
+    }
+  }, [doc.mode, doc.file])
 
   const handleResizeMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -98,6 +108,10 @@ function App(): React.JSX.Element {
         document.removeEventListener('mouseup', onMouseUp)
         document.body.style.cursor = ''
         document.body.style.userSelect = ''
+        setSidebarWidth((w) => {
+          localStorage.setItem('sidebar-width', String(w))
+          return w
+        })
       }
 
       document.body.style.cursor = 'col-resize'
@@ -179,10 +193,12 @@ function App(): React.JSX.Element {
         </aside>
         <div className="resize-handle" onMouseDown={handleResizeMouseDown} />
         <main className="content" onContextMenu={handleContextMenu}>
-          <div className="content-body">
+          <div ref={contentBodyRef} className="content-body">
             {doc.file ? (
-              doc.mode === 'preview' ? (
-                <div ref={contentRefCallback} className="content-inner">
+              doc.loading ? (
+                <div className="content-loading">加载中...</div>
+              ) : doc.mode === 'preview' ? (
+                <div ref={contentRef} className="content-inner">
                   <MarkdownView
                     source={doc.content}
                     currentFilePath={doc.file?.relativePath ?? null}
@@ -196,6 +212,12 @@ function App(): React.JSX.Element {
                   content={doc.content}
                   onChange={updateContent}
                   onSave={flushSave}
+                  onEscape={() => {
+                    if (contentBodyRef.current) {
+                      scrollPositionRef.current = contentBodyRef.current.scrollTop
+                    }
+                    setMode('preview')
+                  }}
                 />
               )
             ) : (

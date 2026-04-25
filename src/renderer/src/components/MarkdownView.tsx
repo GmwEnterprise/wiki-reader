@@ -51,16 +51,6 @@ export function replaceLocalImageSrc(html: string, loadedImages: Record<string, 
   })
 }
 
-const BROKEN_SVG =
-  'data:image/svg+xml,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80">' +
-      '<rect width="120" height="80" rx="6" fill="#f0f0f0" stroke="#d0d0d0" stroke-width="1"/>' +
-      '<text x="60" y="36" text-anchor="middle" fill="#aaa" font-size="24">🖼</text>' +
-      '<text x="60" y="58" text-anchor="middle" fill="#bbb" font-size="10" font-family="sans-serif">图片无法加载</text>' +
-      '</svg>'
-  )
-
 function isLocalLink(href: string): boolean {
   return (
     !href.startsWith('#') &&
@@ -73,7 +63,7 @@ function isLocalLink(href: string): boolean {
 
 export default function MarkdownView({ source, currentFilePath, workspaceRootPath, files, onOpenFile }: MarkdownViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const imageContextKey = `${workspaceRootPath ?? ''}\u0000${currentFilePath ?? ''}\u0000${source}`
+  const imageContextKey = `${workspaceRootPath ?? ''}\u0000${currentFilePath ?? ''}`
   const [loadedImages, setLoadedImages] = useState<{ key: string; urls: Record<string, string> }>({
     key: imageContextKey,
     urls: {}
@@ -123,9 +113,10 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
     for (const img of externalImages) {
       img.addEventListener('error', function handleError() {
         img.removeEventListener('error', handleError)
-        img.setAttribute('data-broken', 'true')
-        img.alt = img.alt || '图片无法加载'
-        img.src = BROKEN_SVG
+        const placeholder = document.createElement('span')
+        placeholder.className = 'broken-image-placeholder'
+        placeholder.textContent = '🖼 图片无法加载'
+        img.replaceWith(placeholder)
       })
     }
   }, [html])
@@ -134,6 +125,18 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
     if (!workspaceRootPath || !currentFilePath) return
 
     let cancelled = false
+
+    const currentSrcs = new Set(collectLocalImageSrcs(renderedHtml))
+    const staleKeys = Object.keys(activeImageUrls).filter((k) => !currentSrcs.has(k))
+    if (staleKeys.length > 0) {
+      setLoadedImages((prev) => {
+        if (prev.key !== imageContextKey) return prev
+        const next = { ...prev.urls }
+        for (const k of staleKeys) delete next[k]
+        return { key: prev.key, urls: next }
+      })
+    }
+
     const localSrcs = collectLocalImageSrcs(renderedHtml).filter((src) => !activeImageUrls[src])
     if (localSrcs.length === 0) return
 
@@ -155,11 +158,11 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
           if (result.success && result.dataUrl) {
             setImageSrc(result.dataUrl)
           } else {
-            setImageSrc(BROKEN_SVG)
+            setImageSrc(PLACEHOLDER)
             console.warn('[MarkdownView] 绝对路径图片加载失败:', localSrc, result.error)
           }
         }).catch(() => {
-          setImageSrc(BROKEN_SVG)
+          setImageSrc(PLACEHOLDER)
         })
         continue
       }
@@ -168,7 +171,7 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
       try {
         resolved = resolveRelativePath(currentFilePath, localSrc)
       } catch {
-        setImageSrc(BROKEN_SVG)
+        setImageSrc(PLACEHOLDER)
         continue
       }
 
@@ -176,11 +179,11 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
         if (result.success && result.dataUrl) {
           setImageSrc(result.dataUrl)
         } else {
-          setImageSrc(BROKEN_SVG)
+          setImageSrc(PLACEHOLDER)
           console.warn('[MarkdownView] 图片加载失败:', localSrc, '→', resolved, result.error)
         }
       }).catch(() => {
-        setImageSrc(BROKEN_SVG)
+        setImageSrc(PLACEHOLDER)
       })
     }
 

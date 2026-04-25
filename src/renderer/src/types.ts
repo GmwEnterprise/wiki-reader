@@ -17,6 +17,7 @@ export type DocumentState = {
   originalContent: string
   mode: 'preview' | 'source'
   dirty: boolean
+  loading: boolean
 }
 
 export type Heading = {
