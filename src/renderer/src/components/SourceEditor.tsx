@@ -1,18 +1,22 @@
 import { useRef, useEffect } from 'react'
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
+import { EditorState, Compartment } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language'
+import { oneDark } from '@codemirror/theme-one-dark'
+
+const darkThemeCompartment = new Compartment()
 
 type SourceEditorProps = {
   content: string
   onChange: (value: string) => void
   onSave: () => void
   onEscape: () => void
+  darkMode?: boolean
 }
 
-export default function SourceEditor({ content, onChange, onSave, onEscape }: SourceEditorProps) {
+export default function SourceEditor({ content, onChange, onSave, onEscape, darkMode = false }: SourceEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
@@ -59,6 +63,7 @@ export default function SourceEditor({ content, onChange, onSave, onEscape }: So
         EditorView.lineWrapping,
         EditorView.theme({
           '&': { height: '100%' },
+          '&.cm-editor': darkMode ? { color: '#d4d4d4', backgroundColor: '#1e1e20' } : {},
           '.cm-scroller': { overflowY: 'auto', overflowX: 'hidden' },
           '.cm-content': {
             fontFamily: "'Maple Mono NF CN', 'SF Mono', 'Consolas', 'Liberation Mono', monospace",
@@ -68,7 +73,8 @@ export default function SourceEditor({ content, onChange, onSave, onEscape }: So
             margin: '0 auto',
             padding: '32px 24px'
           }
-        })
+        }),
+        darkThemeCompartment.of(darkMode ? oneDark : [])
       ]
     })
 
@@ -83,6 +89,23 @@ export default function SourceEditor({ content, onChange, onSave, onEscape }: So
       viewRef.current = null
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!viewRef.current) return
+    viewRef.current.dispatch({
+      effects: darkThemeCompartment.reconfigure(darkMode ? oneDark : [])
+    })
+    const editorEl = viewRef.current.dom.querySelector('.cm-editor')
+    if (editorEl instanceof HTMLElement) {
+      if (darkMode) {
+        editorEl.style.color = '#d4d4d4'
+        editorEl.style.backgroundColor = '#1e1e20'
+      } else {
+        editorEl.style.color = ''
+        editorEl.style.backgroundColor = ''
+      }
+    }
+  }, [darkMode])
 
   useEffect(() => {
     if (viewRef.current && viewRef.current.state.doc.toString() !== content) {

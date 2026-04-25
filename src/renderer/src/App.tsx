@@ -2,12 +2,14 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useWorkspace } from './hooks/useWorkspace'
 import { useDocument } from './hooks/useDocument'
 import { useHeadings } from './hooks/useHeadings'
+import { useTheme } from './hooks/useTheme'
 import Sidebar from './components/Sidebar'
 import MarkdownView from './components/MarkdownView'
 import SourceEditor from './components/SourceEditor'
 
 function App(): React.JSX.Element {
   const { workspace, files, openFolder } = useWorkspace()
+  const { theme, toggleTheme } = useTheme()
   const { doc, loadContent, updateContent, flushSave, setMode, reset } = useDocument(
     workspace?.rootPath ?? null
   )
@@ -150,6 +152,9 @@ function App(): React.JSX.Element {
                 <button className="toolbar-menu-item" type="button" role="menuitem" onClick={handleOpenFolder}>
                   打开文件夹...
                 </button>
+                <button className="toolbar-menu-item" type="button" role="menuitem" onClick={() => { toggleTheme(); setIsMenuOpen(false) }}>
+                  {theme === 'light' ? '切换暗色主题 🌙' : '切换亮色主题 ☀️'}
+                </button>
               </div>
             )}
           </div>
@@ -227,6 +232,7 @@ function App(): React.JSX.Element {
                     }
                     setMode('preview')
                   }}
+                  darkMode={theme === 'dark'}
                 />
               )
             ) : (

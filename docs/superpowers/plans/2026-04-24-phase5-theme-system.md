@@ -18,8 +18,6 @@
 src/renderer/src/
 ├── hooks/
 │   └── useTheme.ts         # 新增
-├── components/
-│   └── ThemeToggle.tsx     # 新增
 ├── App.tsx                 # 修改
 └── App.css                 # 修改：重构为双主题变量
 ```
@@ -138,48 +136,11 @@ git commit -m "feat(theme): add useTheme hook with localStorage persistence"
 
 ---
 
-### Task 3: 创建 ThemeToggle 组件
-
-**Files:**
-- Create: `src/renderer/src/components/ThemeToggle.tsx`
-
-- [ ] **Step 1: 创建 src/renderer/src/components/ThemeToggle.tsx**
-
-```tsx
-import type { Theme } from '../hooks/useTheme'
-
-type ThemeToggleProps = {
-  theme: Theme
-  onToggle: () => void
-}
-
-export default function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
-  return (
-    <button
-      className="toolbar-btn toolbar-btn--ghost toolbar-btn--icon"
-      onClick={onToggle}
-      title={theme === 'light' ? '切换暗色主题' : '切换亮色主题'}
-    >
-      {theme === 'light' ? '🌙' : '☀️'}
-    </button>
-  )
-}
-```
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add src/renderer/src/components/ThemeToggle.tsx
-git commit -m "feat(theme): add ThemeToggle component"
-```
-
----
-
-### Task 4: 接入 App 组件
+### Task 3: 接入 App 组件与 SourceEditor 暗色支持
 
 **Files:**
 - Modify: `src/renderer/src/App.tsx`
-- Modify: `src/renderer/src/App.css`
+- Modify: `src/renderer/src/components/SourceEditor.tsx`
 
 - [ ] **Step 1: 在 App.tsx 中接入主题**
 
@@ -187,140 +148,83 @@ git commit -m "feat(theme): add ThemeToggle component"
 
 ```tsx
 import { useTheme } from './hooks/useTheme'
-import ThemeToggle from './components/ThemeToggle'
 
 // 在 App 函数体内部
 const { theme, toggleTheme } = useTheme()
 ```
 
-在工具栏右侧，`toolbar-right` 的 `<div>` 内，添加主题切换按钮：
+在主菜单面板中添加主题切换菜单项：
 
 ```tsx
-<div className="toolbar-right">
-  {doc.file && (
-    <>
-      <button className="toolbar-btn toolbar-btn--ghost" onClick={handleToggleMode}>
-        {doc.mode === 'preview' ? '源码' : '预览'}
-      </button>
-      <span className="toolbar-status">
-        {doc.dirty ? '未保存' : '已保存'}
-      </span>
-    </>
-  )}
-  <ThemeToggle theme={theme} onToggle={toggleTheme} />
-</div>
+<button className="toolbar-menu-item" type="button" role="menuitem" onClick={() => { toggleTheme(); setIsMenuOpen(false) }}>
+  {theme === 'light' ? '切换暗色主题 🌙' : '切换亮色主题 ☀️'}
+</button>
 ```
 
-- [ ] **Step 2: 添加主题按钮图标样式**
-
-在 App.css 末尾添加：
-
-```css
-.toolbar-btn--icon {
-  padding: 4px 8px;
-  font-size: 16px;
-  line-height: 1;
-}
-```
-
-- [ ] **Step 3: 修改 SourceEditor 组件支持暗色主题**
-
-修改 `src/renderer/src/components/SourceEditor.tsx`，接受 `theme` prop 并在暗色模式下应用 One Dark 主题：
-
-在文件顶部添加导入：
-
-```ts
-import { oneDark } from '@codemirror/theme-one-dark'
-```
-
-修改 props 类型：
-
-```ts
-type SourceEditorProps = {
-  content: string
-  onChange: (value: string) => void
-  onSave: () => void
-  darkMode?: boolean
-}
-```
-
-修改组件签名和解构：
-
-```tsx
-export default function SourceEditor({ content, onChange, onSave, darkMode = false }: SourceEditorProps) {
-```
-
-在 `extensions` 数组中，根据 `darkMode` 条件添加 `oneDark`：
-
-```ts
-const extensions = [
-  lineNumbers(),
-  highlightActiveLine(),
-  history(),
-  markdown({ base: markdownLanguage }),
-  syntaxHighlighting(defaultHighlightStyle),
-  keymap.of([
-    ...defaultKeymap,
-    ...historyKeymap,
-    {
-      key: 'Mod-s',
-      run: () => {
-        onSave()
-        return true
-      }
-    }
-  ]),
-  EditorView.updateListener.of((update) => {
-    if (update.docChanged) {
-      onChangeRef.current(update.state.doc.toString())
-    }
-  }),
-  EditorView.theme({
-    '&': { height: '100%' },
-    '&.cm-editor': darkMode ? { color: '#d4d4d4', backgroundColor: '#1e1e20' } : {},
-    '.cm-scroller': { overflow: 'auto' },
-    '.cm-content': {
-      fontFamily: "'SF Mono', 'Consolas', 'Liberation Mono', monospace",
-      fontSize: '14px',
-      lineHeight: '1.6',
-      maxWidth: '860px',
-      margin: '0 auto',
-      padding: '32px 24px'
-    }
-  }),
-  ...(darkMode ? [oneDark] : [])
-]
-```
-
-在 `App.tsx` 中传递 `darkMode` prop：
+在 `SourceEditor` 调用处传递 `darkMode` prop：
 
 ```tsx
 <SourceEditor
   content={doc.content}
   onChange={updateContent}
-  onSave={handleSave}
+  onSave={flushSave}
+  onEscape={...}
   darkMode={theme === 'dark'}
 />
 ```
 
-- [ ] **Step 4: 启动验证**
+- [ ] **Step 2: 修改 SourceEditor 组件支持暗色主题**
+
+修改 `src/renderer/src/components/SourceEditor.tsx`，接受 `darkMode` prop 并在暗色模式下应用 One Dark 主题。
+
+使用 `Compartment` 动态切换 `oneDark`，避免切换主题时重建编辑器导致撤销历史丢失：
+
+```ts
+import { Compartment } from '@codemirror/state'
+import { oneDark } from '@codemirror/theme-one-dark'
+
+const darkThemeCompartment = new Compartment()
+
+// 在初始化 extensions 中：
+darkThemeCompartment.of(darkMode ? oneDark : [])
+
+// 单独 useEffect 响应 darkMode 变化：
+useEffect(() => {
+  if (!viewRef.current) return
+  viewRef.current.dispatch({
+    effects: darkThemeCompartment.reconfigure(darkMode ? oneDark : [])
+  })
+}, [darkMode])
+```
+
+同时通过 `EditorView.theme` 设置编辑器基础背景色：
+
+```ts
+EditorView.theme({
+  '&': { height: '100%' },
+  '&.cm-editor': darkMode ? { color: '#d4d4d4', backgroundColor: '#1e1e20' } : {},
+  ...
+})
+```
+
+- [ ] **Step 3: 启动验证**
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 验证步骤：
-1. 点击工具栏右侧月亮/太阳图标切换主题
+1. 通过主菜单切换主题
 2. 切换到暗色主题：背景变深灰、文字变亮、侧栏变深
 3. 切换到亮色主题：恢复温暖白底
 4. 关闭应用重新打开，主题选择保持
-5. 源码模式下切换主题，CodeMirror 编辑器跟随变化
+5. 源码模式下切换主题，CodeMirror 编辑器跟随变化，撤销历史不丢失
 6. 代码块高亮在两种主题下保持 One Dark 风格
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add src/renderer/src/App.tsx src/renderer/src/App.css src/renderer/src/components/SourceEditor.tsx src/renderer/src/components/ThemeToggle.tsx
+git add src/renderer/src/App.tsx src/renderer/src/components/SourceEditor.tsx
 git commit -m "feat(theme): integrate theme toggle into App with CodeMirror dark mode support"
 ```
 
