@@ -9,6 +9,7 @@ import {
   watchWorkspace,
   unwatchWorkspace
 } from './workspace'
+import { createTerminal, terminalWrite, terminalResize, terminalKill } from './terminal'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('workspace:openFolder', async () => {
@@ -66,5 +67,29 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('workspace:unwatch', (_event, rootPath: string) => {
     unwatchWorkspace(rootPath)
+  })
+
+  ipcMain.handle('terminal:create', (event, id: number, cwd: string | null) => {
+    if (typeof id !== 'number' || (cwd !== null && typeof cwd !== 'string')) return null
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return { error: '窗口不存在' }
+    const error = createTerminal(win, cwd, id)
+    return error ? { error } : null
+  })
+
+  ipcMain.handle('terminal:write', (_event, id: number, data: string) => {
+    if (typeof id !== 'number' || typeof data !== 'string') return false
+    return terminalWrite(id, data)
+  })
+
+  ipcMain.on('terminal:resize', (_event, id: number, cols: number, rows: number) => {
+    if (typeof id !== 'number' || typeof cols !== 'number' || typeof rows !== 'number') return
+    if (cols <= 0 || rows <= 0) return
+    terminalResize(id, cols, rows)
+  })
+
+  ipcMain.handle('terminal:kill', (_event, id: number) => {
+    if (typeof id !== 'number') return
+    terminalKill(id)
   })
 }

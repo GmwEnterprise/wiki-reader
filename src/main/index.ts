@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { electronApp } from '@electron-toolkit/utils'
 import { createMainWindow } from './window'
 import { registerIpcHandlers } from './ipc-handlers'
+import { killAllTerminals } from './terminal'
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.wiki-reader.app')
@@ -43,5 +44,6 @@ ipcMain.on('window:confirm-close', (event) => {
 })
 
 app.on('window-all-closed', () => {
+  killAllTerminals()
   app.quit()
 })

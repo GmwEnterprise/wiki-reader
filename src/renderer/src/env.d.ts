@@ -34,6 +34,13 @@ declare global {
       onFilesChanged: (callback: () => void) => () => void
       onBeforeClose: (callback: () => void) => () => void
       confirmClose: () => void
+      terminalCreate: (id: number, cwd: string | null) => Promise<{ error: string } | null>
+      terminalWrite: (id: number, data: string) => Promise<boolean>
+      terminalResize: (id: number, cols: number, rows: number) => void
+      terminalKill: (id: number) => Promise<void>
+      onTerminalData: (id: number, callback: (data: string) => void) => () => void
+      onTerminalExit: (id: number, callback: (exitCode: number) => void) => () => void
+      onTerminalError: (id: number, callback: (error: string) => void) => () => void
     }
   }
 }

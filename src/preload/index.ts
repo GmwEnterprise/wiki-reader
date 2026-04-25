@@ -36,7 +36,36 @@ const api = {
     ipcRenderer.on('window:before-close', handler)
     return () => ipcRenderer.removeListener('window:before-close', handler)
   },
-  confirmClose: () => ipcRenderer.send('window:confirm-close')
+  confirmClose: () => ipcRenderer.send('window:confirm-close'),
+  terminalCreate: (id: number, cwd: string | null) =>
+    ipcRenderer.invoke('terminal:create', id, cwd),
+  terminalWrite: (id: number, data: string) =>
+    ipcRenderer.invoke('terminal:write', id, data) as Promise<boolean>,
+  terminalResize: (id: number, cols: number, rows: number) =>
+    ipcRenderer.send('terminal:resize', id, cols, rows),
+  terminalKill: (id: number) =>
+    ipcRenderer.invoke('terminal:kill', id),
+  onTerminalData: (id: number, callback: (data: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, terminalId: number, data: string): void => {
+      if (terminalId === id) callback(data)
+    }
+    ipcRenderer.on('terminal:data', handler)
+    return () => ipcRenderer.removeListener('terminal:data', handler)
+  },
+  onTerminalExit: (id: number, callback: (exitCode: number) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, terminalId: number, exitCode: number): void => {
+      if (terminalId === id) callback(exitCode)
+    }
+    ipcRenderer.on('terminal:exit', handler)
+    return () => ipcRenderer.removeListener('terminal:exit', handler)
+  },
+  onTerminalError: (id: number, callback: (error: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, terminalId: number, error: string): void => {
+      if (terminalId === id) callback(error)
+    }
+    ipcRenderer.on('terminal:error', handler)
+    return () => ipcRenderer.removeListener('terminal:error', handler)
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

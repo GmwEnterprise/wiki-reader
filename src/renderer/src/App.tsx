@@ -3,9 +3,11 @@ import { useWorkspace } from './hooks/useWorkspace'
 import { useDocument } from './hooks/useDocument'
 import { useHeadings } from './hooks/useHeadings'
 import { useTheme } from './hooks/useTheme'
+import { useTerminal } from './hooks/useTerminal'
 import Sidebar from './components/Sidebar'
 import MarkdownView from './components/MarkdownView'
 import SourceEditor from './components/SourceEditor'
+import TerminalPanel from './components/Terminal'
 
 function App(): React.JSX.Element {
   const { workspace, files, openFolder } = useWorkspace()
@@ -14,6 +16,7 @@ function App(): React.JSX.Element {
     workspace?.rootPath ?? null
   )
   const { headings, activeId, setupObserver, jumpToHeading } = useHeadings(doc.content)
+  const { visible: terminalVisible, toggle: toggleTerminal, hide: hideTerminal } = useTerminal()
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('sidebar-width')
     return saved ? Math.min(window.innerWidth / 2, Math.max(200, Number(saved))) : 240
@@ -160,8 +163,6 @@ function App(): React.JSX.Element {
           </div>
         </div>
         <div className="toolbar-title">{workspace?.name ?? '笔记'}</div>
-        <div className="toolbar-right">
-        </div>
         <div className="window-controls">
           <button
             className="window-control-button"
@@ -241,6 +242,25 @@ function App(): React.JSX.Element {
           </div>
         </main>
       </div>
+      <TerminalPanel
+        visible={terminalVisible}
+        dark={theme === 'dark'}
+        workspaceRoot={workspace?.rootPath ?? null}
+        onClose={hideTerminal}
+      />
+      <footer className="statusbar">
+        <div className="statusbar-left" />
+        <div className="statusbar-right">
+          <button
+            className={`statusbar-btn ${terminalVisible ? 'statusbar-btn--active' : ''}`}
+            type="button"
+            onClick={toggleTerminal}
+            title={terminalVisible ? '隐藏终端' : '显示终端'}
+          >
+            ⌨ 终端
+          </button>
+        </div>
+      </footer>
     </div>
   )
 }
