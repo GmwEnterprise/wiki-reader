@@ -1,13 +1,19 @@
-import { shell, BrowserWindow } from 'electron'
+import { shell, screen, BrowserWindow } from 'electron'
 import { join, basename } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getWindowShortcutAction } from './window-shortcuts'
 
 export function createMainWindow(initialPath?: string): BrowserWindow {
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+
+  const winWidth = Math.min(Math.round(screenWidth * 0.75), 1600)
+  const winHeight = Math.min(Math.round(screenHeight * 0.8), 1000)
+
   const win = new BrowserWindow({
-    width: 1440,
-    height: 1200,
+    width: winWidth,
+    height: winHeight,
     minWidth: 800,
     minHeight: 600,
     title: initialPath ? `${basename(initialPath)} - Wiki Reader` : 'Wiki Reader',
