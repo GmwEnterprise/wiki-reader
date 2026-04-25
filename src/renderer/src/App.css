@@ -208,6 +208,31 @@ body,
   overflow-y: auto;
 }
 
+.content-body::-webkit-scrollbar {
+  width: 7px;
+}
+
+.content-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content-body::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+}
+
+.content-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.22);
+}
+
+[data-theme='dark'] .content-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+[data-theme='dark'] .content-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
 .toolbar-menu {
   position: relative;
   -webkit-app-region: no-drag;

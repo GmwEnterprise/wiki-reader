@@ -101,6 +101,16 @@ export async function readWorkspaceAsset(rootPath: string, relativePath: string)
   return `data:${mimeType};base64,${buffer.toString('base64')}`
 }
 
+export async function readAbsoluteImageFile(absolutePath: string): Promise<string> {
+  const normalizedPath = normalize(absolutePath)
+  const ext = extname(normalizedPath).toLowerCase()
+  const mimeType = IMAGE_MIME_TYPES.get(ext)
+  if (!mimeType) throw new Error(`不支持的图片类型: ${ext}`)
+
+  const buffer = await readFile(normalizedPath)
+  return `data:${mimeType};base64,${buffer.toString('base64')}`
+}
+
 export async function validatePath(rootPath: string, targetPath: string): Promise<boolean> {
   const normalizedTarget = normalize(targetPath)
   const normalizedRoot = normalize(rootPath)

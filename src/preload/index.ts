@@ -22,6 +22,8 @@ const api = {
     ipcRenderer.invoke('workspace:saveFile', rootPath, relativePath, content),
   readAsset: (rootPath: string, relativePath: string) =>
     ipcRenderer.invoke('workspace:readAsset', rootPath, relativePath),
+  readAbsoluteAsset: (absolutePath: string) =>
+    ipcRenderer.invoke('workspace:readAbsoluteAsset', absolutePath),
   watchWorkspace: (rootPath: string) => ipcRenderer.invoke('workspace:watch', rootPath),
   unwatchWorkspace: (rootPath: string) => ipcRenderer.invoke('workspace:unwatch', rootPath),
   onFilesChanged: (callback: () => void) => {

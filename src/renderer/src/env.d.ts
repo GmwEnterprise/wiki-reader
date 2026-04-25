@@ -26,6 +26,9 @@ declare global {
         rootPath: string,
         relativePath: string
       ) => Promise<{ success: boolean; dataUrl?: string; error?: string }>
+      readAbsoluteAsset: (
+        absolutePath: string
+      ) => Promise<{ success: boolean; dataUrl?: string; error?: string }>
       watchWorkspace: (rootPath: string) => Promise<void>
       unwatchWorkspace: (rootPath: string) => Promise<void>
       onFilesChanged: (callback: () => void) => () => void

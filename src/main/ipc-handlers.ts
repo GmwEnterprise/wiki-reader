@@ -4,6 +4,7 @@ import {
   scanMarkdownFiles,
   readMarkdownFile,
   readWorkspaceAsset,
+  readAbsoluteImageFile,
   saveMarkdownFile,
   watchWorkspace,
   unwatchWorkspace
@@ -39,6 +40,15 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('workspace:readAsset', async (_event, rootPath: string, relativePath: string) => {
     try {
       const dataUrl = await readWorkspaceAsset(rootPath, relativePath)
+      return { success: true, dataUrl }
+    } catch (err: any) {
+      return { success: false, error: err.message }
+    }
+  })
+
+  ipcMain.handle('workspace:readAbsoluteAsset', async (_event, absolutePath: string) => {
+    try {
+      const dataUrl = await readAbsoluteImageFile(absolutePath)
       return { success: true, dataUrl }
     } catch (err: any) {
       return { success: false, error: err.message }

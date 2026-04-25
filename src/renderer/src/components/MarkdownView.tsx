@@ -33,6 +33,8 @@ const PLACEHOLDER =
 
 const LOCAL_SRC_RE = /(<img\s[^>]*?)src="((?!(?:https?:|data:|file:|\/\/))[^"]+)"([^>]*?>)/g
 
+const ABSOLUTE_PATH_RE = /^(?:[A-Za-z]:[\\/]|\/)/
+
 export function collectLocalImageSrcs(html: string): string[] {
   const srcs = new Set<string>()
   for (const match of html.matchAll(LOCAL_SRC_RE)) {
@@ -145,6 +147,21 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
             [localSrc]: src
           }
         }))
+      }
+
+      if (ABSOLUTE_PATH_RE.test(localSrc) || ABSOLUTE_PATH_RE.test(decodeURIComponent(localSrc))) {
+        const normalized = normalizePath(decodeURIComponent(localSrc))
+        window.api.readAbsoluteAsset(normalized).then((result) => {
+          if (result.success && result.dataUrl) {
+            setImageSrc(result.dataUrl)
+          } else {
+            setImageSrc(BROKEN_SVG)
+            console.warn('[MarkdownView] 绝对路径图片加载失败:', localSrc, result.error)
+          }
+        }).catch(() => {
+          setImageSrc(BROKEN_SVG)
+        })
+        continue
       }
 
       let resolved: string

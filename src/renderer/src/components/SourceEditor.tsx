@@ -44,12 +44,13 @@ export default function SourceEditor({ content, onChange, onSave }: SourceEditor
             onChangeRef.current(update.state.doc.toString())
           }
         }),
+        EditorView.lineWrapping,
         EditorView.theme({
           '&': { height: '100%' },
-          '.cm-scroller': { overflow: 'auto' },
+          '.cm-scroller': { overflowY: 'auto', overflowX: 'hidden' },
           '.cm-content': {
-            fontFamily: "'SF Mono', 'Consolas', 'Liberation Mono', monospace",
-            fontSize: '14px',
+            fontFamily: "'Maple Mono NF CN', 'SF Mono', 'Consolas', 'Liberation Mono', monospace",
+            fontSize: '15px',
             lineHeight: '1.6',
             maxWidth: '860px',
             margin: '0 auto',
