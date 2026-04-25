@@ -123,12 +123,46 @@ wiki-reader/
 - **避免内联样式**：不在 TSX 中用 `style={{ ... }}` 传递视觉样式值。需要组件动态控制的值（如树形缩进深度），通过 CSS 变量传递（`style={{ '--node-depth': depth }}`），实际样式计算留在 CSS 中完成。
 - **新增模块时**：创建独立的 `{模块名}.css`，在 `main.tsx` 中导入，遵循相同的变量分层模式。
 
+## 打包注意事项（electron-builder）
+
+### Windows 开发环境要求
+
+本项目依赖 `node-pty` 等原生模块，需要在 Windows 上满足以下条件：
+
+1. **Windows 开发者模式**：设置 → 系统 → 开发者选项 → 开启"开发人员模式"。
+   - electron-builder 的 `winCodeSign` 工具包内含 macOS 符号链接文件，解压时需要创建符号链接权限，不开开发者模式打包会失败。
+   - 如果不想开启，可在 `electron-builder.yml` 的 `win:` 下添加 `signAndEditExecutable: false` 跳过代码签名，但这仅适用于本地测试，正式发布安装包仍需签名。
+2. **Visual Studio Build Tools**：需要安装 VS Build Tools（或完整版 Visual Studio），并勾选"使用 C++ 的桌面开发"工作负载。这是 `node-pty` 编译所必需的。
+3. **Python 环境**：`node-gyp`（`node-pty` 的编译工具链）需要 Python 3.x。确保 `python` 或 `python3` 在 PATH 中可用。
+4. **Spectre 缓解库**：在 VS Build Tools 安装程序中，除了"C++ 核心功能"外，还需要在"单个组件"中勾选安装 **MSVC Spectre 缓解库（最新版）**。`node-pty` 编译时如果启用了 Spectre 缓解（`/Qspectre`），链接时缺少该库会报错。
+5. **node-gyp**：`pnpm install` 时会通过 `postinstall` 脚本（`electron-builder install-app-deps`）自动编译原生模块。如果遇到编译错误，先检查上述 1-4 项是否满足。
+
+### 类型检查常见问题
+
+1. **`tsconfig.web.json` 中的 `paths` 配置**：使用非相对路径的路径映射时，必须同时设置 `"baseUrl": "."`，否则 TypeScript 会报 TS5090 错误。
+2. **`null` 与 `undefined` 不兼容**：TypeScript strict 模式下，`string | null` 不能直接传给期望 `string | undefined` 的参数，需用 `?? undefined` 转换。
+
+### 字体资源警告
+
+打包时会出现以下警告，属于正常现象，不影响运行：
+```
+resources/fonts/MapleMono-NF-CN-Regular.ttf referenced in ... didn't resolve at build time,
+it will remain unchanged to be resolved at runtime
+```
+字体文件通过 `asarUnpack` 配置原样输出，运行时按相对路径加载即可。
+
+### npm 警告
+
+`pnpm build` 会触发内部的 `npm run` 调用，产生大量 `Unknown env config` / `Unknown project config` / `Unknown global config` 警告（如 `electron_mirror`、`shamefully-hoist` 等）。这些是 pnpm 环境变量透传到 npm 造成的，不影响构建结果，可安全忽略。
+
 ## 可用 pnpm 脚本（供用户在宿主机执行）
 
 ```bash
-pnpm dev        # 启动开发服务器
-pnpm build      # 构建应用
-pnpm preview    # 预览构建结果
-pnpm test       # 运行测试
-pnpm test:watch # 监听模式运行测试
+pnpm dev           # 启动开发服务器
+pnpm build         # 构建应用（类型检查 + 编译）
+pnpm preview       # 预览构建结果
+pnpm test          # 运行测试
+pnpm test:watch    # 监听模式运行测试
+pnpm build:win     # 打包为 Windows 安装包（NSIS .exe），输出到 dist/
+pnpm build:unpack  # 打包为解压即用目录（不生成安装包），用于快速验证
 ```

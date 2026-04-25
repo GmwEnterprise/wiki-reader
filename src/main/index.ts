@@ -21,7 +21,7 @@ if (!gotTheLock) {
         win.webContents.send('workspace:open-path', openPath)
       }
     } else {
-      const newWin = createMainWindow(openPath)
+      const newWin = createMainWindow(openPath ?? undefined)
       if (openPath) {
         newWin.setTitle(basename(openPath) + ' - Wiki Reader')
       }
