@@ -32,29 +32,55 @@ Markdown Wiki Reader —— 基于 Electron 的本地 Markdown wiki 阅读器，
 ```
 wiki-reader/
 ├── src/
-│   ├── main/          # Electron 主进程
-│   │   ├── index.ts   # 应用入口
-│   │   ├── window.ts  # 窗口创建与管理
-│   │   ├── workspace.ts # 文件夹扫描、读写、监听
-│   │   └── terminal.ts  # node-pty 管理
-│   ├── preload/       # 预加载脚本（安全 API 桥接）
+│   ├── main/                # Electron 主进程
+│   │   ├── index.ts         # 应用入口、单实例锁、菜单
+│   │   ├── window.ts        # 窗口创建与管理（多窗口）
+│   │   ├── window-shortcuts.ts # 窗口快捷键注册
+│   │   ├── workspace.ts     # 文件夹扫描、读写、监听
+│   │   ├── terminal.ts      # node-pty 终端进程管理
+│   │   ├── ipc-handlers.ts  # IPC 通信处理
+│   │   └── recent-folders.ts # 最近文件夹记录与 Jump List
+│   ├── preload/             # 预加载脚本（安全 API 桥接）
 │   │   └── index.ts
-│   └── renderer/      # 渲染进程（React）
+│   └── renderer/            # 渲染进程（React）
 │       ├── index.html
 │       └── src/
-│           ├── App.tsx       # 根组件与布局
-│           ├── App.css       # 全局样式与基础 CSS 变量
-│           ├── sidebar.css   # 侧栏模块样式（变量+规则）
-│           ├── main.tsx      # React 入口
-│           ├── types.ts      # 类型定义
-│           ├── env.d.ts      # 环境类型声明
-│           ├── sidebar/      # 左侧栏（文件列表/标题列表）
-│           ├── markdown/     # Markdown 渲染与代码高亮
-│           ├── editor/       # CodeMirror 源码编辑
-│           ├── terminal/     # xterm 终端面板
-│           └── theme/        # 明暗主题
-├── resources/         # 应用图标等资源
-├── docs/              # 设计文档和开发计划
+│           ├── App.tsx           # 根组件与布局
+│           ├── App.css           # 全局样式与基础 CSS 变量
+│           ├── main.tsx          # React 入口
+│           ├── types.ts          # 类型定义
+│           ├── env.d.ts          # 环境类型声明
+│           ├── fonts.css         # Maple Mono NF CN 字体声明
+│           ├── sidebar.css       # 侧栏模块样式
+│           ├── markdown.css      # Markdown 渲染样式
+│           ├── heading-list.css  # 标题列表样式
+│           ├── components/       # UI 组件
+│           │   ├── Sidebar.tsx       # 侧栏容器
+│           │   ├── FileList.tsx      # 文件树列表
+│           │   ├── HeadingList.tsx   # 标题导航列表
+│           │   ├── MarkdownView.tsx  # Markdown 渲染视图
+│           │   ├── SourceEditor.tsx  # CodeMirror 源码编辑器
+│           │   ├── TerminalPanel.tsx # 终端面板容器
+│           │   ├── TerminalTabs.tsx  # 终端标签栏
+│           │   ├── TerminalInstance.tsx # 单个终端实例
+│           │   ├── terminalLayout.ts   # 终端布局逻辑
+│           │   ├── terminalTabActions.ts # 终端标签操作
+│           │   └── WelcomePage.tsx    # 欢迎页（最近文件夹）
+│           ├── hooks/            # 自定义 Hooks
+│           │   ├── useWorkspace.ts    # 工作区状态管理
+│           │   ├── useDocument.ts     # 文档加载与保存
+│           │   ├── useHeadings.ts     # 标题提取与导航
+│           │   ├── useTheme.ts        # 主题切换
+│           │   └── useTerminalTabs.ts # 终端标签页管理
+│           └── utils/            # 工具函数
+│               ├── markdown.ts       # markdown-it 配置与扩展
+│               └── headings.ts       # 标题解析工具
+├── tests/
+│   └── unit/                # 单元测试（Vitest）
+├── resources/               # 应用资源
+│   ├── fonts/               # Maple Mono NF CN 字体文件
+│   └── icon.png             # 应用图标
+├── docs/                    # 设计文档和开发计划
 ├── electron.vite.config.ts
 ├── electron-builder.json5
 ├── tsconfig.json
@@ -62,21 +88,24 @@ wiki-reader/
 └── tsconfig.web.json
 ```
 
-## 开发阶段
+## 已实现功能
 
-详见 `init-plan.md`，共 7 个阶段：
+全部 7 个阶段及后续增强均已完成：
 
-| 阶段 | 内容 |
-|------|------|
-| Phase 1 | 项目脚手架，Electron 窗口能启动并显示基本布局 |
-| Phase 2 | 打开文件夹、浏览 Markdown 文件树 |
-| Phase 3 | Markdown 渲染 + 标题导航 |
-| Phase 4 | CodeMirror 源码编辑 + 手动保存 |
-| Phase 5 | 明暗主题切换 + 持久化 |
-| Phase 6 | 底部终端面板（xterm.js + node-pty） |
-| Phase 7 | 多窗口 + 欢迎页 + 错误处理 |
+| 阶段 | 内容 | 状态 |
+|------|------|------|
+| Phase 1 | 项目脚手架，Electron 无框窗口、三段式布局 | ✅ |
+| Phase 2 | 打开文件夹、浏览 Markdown 文件树、工作区管理 | ✅ |
+| Phase 3 | Markdown 渲染（markdown-it + highlight.js）+ 标题导航 | ✅ |
+| Phase 4 | CodeMirror 6 源码编辑器 + 手动保存（Ctrl+S） | ✅ |
+| Phase 5 | 明暗主题切换 + localStorage 持久化 | ✅ |
+| Phase 6 | 底部终端面板（xterm.js + node-pty） | ✅ |
+| Phase 7 | 多窗口 + 欢迎页 + 单实例锁 | ✅ |
+| 增强 | 多终端标签页（新建/关闭/切换） | ✅ |
+| 增强 | 任务栏增强（多窗口预览显示文件夹名）、最近文件夹（Jump List + 欢迎页列表）、菜单控制 | ✅ |
+| 增强 | Maple Mono NF CN 统一代码字体 | ✅ |
 
-每个阶段都有对应的计划文件：`docs/superpowers/plans/2026-04-24-phase{N}-*.md`
+各阶段计划文件：`docs/superpowers/plans/2026-04-24-phase{N}-*.md`
 
 ## 项目编码约定
 
