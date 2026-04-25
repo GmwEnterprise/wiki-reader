@@ -11,7 +11,7 @@ import TerminalPanel from './components/TerminalPanel'
 import WelcomePage from './components/WelcomePage'
 
 function App(): React.JSX.Element {
-  const { workspace, files, openFolder } = useWorkspace()
+  const { workspace, files, openFolder, openRecentFolder, closeWorkspace } = useWorkspace()
   const { theme, toggleTheme } = useTheme()
   const { doc, loadContent, updateContent, flushSave, setMode, reset } = useDocument(
     workspace?.rootPath ?? null
@@ -42,12 +42,33 @@ function App(): React.JSX.Element {
     await openFolder()
   }, [openFolder, reset, flushSave])
 
+  const handleOpenRecent = useCallback(async (path: string) => {
+    await flushSave()
+    reset()
+    await openRecentFolder(path)
+  }, [openRecentFolder, reset, flushSave])
+
+  const handleCloseWorkspace = useCallback(async () => {
+    setIsMenuOpen(false)
+    await flushSave()
+    reset()
+    closeWorkspace()
+    window.api.closeWorkspace()
+  }, [flushSave, reset, closeWorkspace])
+
   useEffect(() => {
     const unsub = window.api.onMenuOpenFolder(() => {
       handleOpenFolder()
     })
     return unsub
   }, [handleOpenFolder])
+
+  useEffect(() => {
+    const unsub = window.api.onOpenPath((path: string) => {
+      handleOpenRecent(path)
+    })
+    return unsub
+  }, [handleOpenRecent])
 
   useEffect(() => {
     const unsub = window.api.onMenuToggleMode(() => {
@@ -193,6 +214,17 @@ function App(): React.JSX.Element {
                 <button className="toolbar-menu-item" type="button" role="menuitem" onClick={() => { toggleTheme(); setIsMenuOpen(false) }}>
                   {theme === 'light' ? '切换暗色主题 🌙' : '切换亮色主题 ☀️'}
                 </button>
+                {workspace && (
+                  <button className="toolbar-menu-item" type="button" role="menuitem" onClick={handleCloseWorkspace}>
+                    关闭文件夹
+                  </button>
+                )}
+                <button className="toolbar-menu-item" type="button" role="menuitem" onClick={() => { setIsMenuOpen(false); window.api.windowControls.close() }}>
+                  关闭窗口
+                </button>
+                <button className="toolbar-menu-item" type="button" role="menuitem" onClick={() => { setIsMenuOpen(false); window.api.quitApp() }}>
+                  退出
+                </button>
               </div>
             )}
           </div>
@@ -303,7 +335,7 @@ function App(): React.JSX.Element {
           </footer>
         </>
       ) : (
-        <WelcomePage onOpenFolder={handleOpenFolder} />
+        <WelcomePage onOpenFolder={handleOpenFolder} onOpenRecent={handleOpenRecent} />
       )}
     </div>
   )

@@ -1,24 +1,68 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
+import { basename } from 'path'
 import { electronApp } from '@electron-toolkit/utils'
 import { createMainWindow } from './window'
 import { registerIpcHandlers } from './ipc-handlers'
-import { killAllTerminals } from './terminal'
+import { killAllTerminals, killWindowTerminals } from './terminal'
+import { refreshJumpList } from './recent-folders'
 
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.wiki-reader.app')
+const gotTheLock = app.requestSingleInstanceLock()
 
-  app.on('browser-window-created', (_, window) => {
-    window.on('maximize', () => {
-      window.webContents.send('window:maximized-changed', true)
-    })
-    window.on('unmaximize', () => {
-      window.webContents.send('window:maximized-changed', false)
-    })
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const openPath = parseOpenArg(argv)
+    const win = getLastWindow()
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.focus()
+      if (openPath) {
+        win.webContents.send('workspace:open-path', openPath)
+      }
+    } else {
+      const newWin = createMainWindow(openPath)
+      if (openPath) {
+        newWin.setTitle(basename(openPath) + ' - Wiki Reader')
+      }
+    }
   })
 
-  registerIpcHandlers()
-  createMainWindow()
-})
+  app.whenReady().then(() => {
+    electronApp.setAppUserModelId('com.wiki-reader.app')
+
+    app.on('browser-window-created', (_, window) => {
+      window.on('maximize', () => {
+        window.webContents.send('window:maximized-changed', true)
+      })
+      window.on('unmaximize', () => {
+        window.webContents.send('window:maximized-changed', false)
+      })
+    })
+
+    registerIpcHandlers()
+    refreshJumpList()
+    createMainWindow()
+  })
+}
+
+function parseOpenArg(argv: string[]): string | null {
+  for (let i = 0; i < argv.length - 1; i++) {
+    if (argv[i] === '--open') {
+      let path = argv[i + 1]
+      if (path.startsWith('"') && path.endsWith('"')) {
+        path = path.slice(1, -1)
+      }
+      return path
+    }
+  }
+  return null
+}
+
+function getLastWindow(): BrowserWindow | null {
+  const windows = BrowserWindow.getAllWindows()
+  return windows.length > 0 ? windows[windows.length - 1] : null
+}
 
 ipcMain.on('window:minimize', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.minimize()
@@ -45,6 +89,19 @@ ipcMain.on('window:confirm-close', (event) => {
 
 ipcMain.on('window:new-window', () => {
   createMainWindow()
+})
+
+ipcMain.on('window:close-workspace', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (win) {
+    killWindowTerminals(win.id)
+    win.setTitle('Wiki Reader')
+  }
+})
+
+ipcMain.on('window:quit', () => {
+  killAllTerminals()
+  app.quit()
 })
 
 app.on('window-all-closed', () => {

@@ -1,16 +1,16 @@
 import { shell, BrowserWindow } from 'electron'
-import { join } from 'path'
+import { join, basename } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getWindowShortcutAction } from './window-shortcuts'
 
-export function createMainWindow(): BrowserWindow {
+export function createMainWindow(initialPath?: string): BrowserWindow {
   const win = new BrowserWindow({
     width: 1440,
     height: 1200,
     minWidth: 800,
     minHeight: 600,
-    title: 'Wiki Reader',
+    title: initialPath ? `${basename(initialPath)} - Wiki Reader` : 'Wiki Reader',
     show: false,
     autoHideMenuBar: true,
     icon,

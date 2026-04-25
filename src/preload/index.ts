@@ -48,6 +48,19 @@ const api = {
     return () => ipcRenderer.removeListener('menu:toggleMode', handler)
   },
   newWindow: () => ipcRenderer.send('window:new-window'),
+  closeWorkspace: () => ipcRenderer.send('window:close-workspace'),
+  quitApp: () => ipcRenderer.send('window:quit'),
+  openPath: (folderPath: string) => ipcRenderer.invoke('workspace:openPath', folderPath),
+  getRecentFolders: () => ipcRenderer.invoke('recent:getList'),
+  removeRecentFolder: (folderPath: string) => ipcRenderer.invoke('recent:remove', folderPath),
+  clearRecentFolders: () => ipcRenderer.invoke('recent:clear'),
+  onOpenPath: (callback: (path: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, path: string): void => {
+      callback(path)
+    }
+    ipcRenderer.on('workspace:open-path', handler)
+    return () => ipcRenderer.removeListener('workspace:open-path', handler)
+  },
   terminalCreate: (id: number, cwd: string | null) =>
     ipcRenderer.invoke('terminal:create', id, cwd),
   terminalWrite: (id: number, data: string) =>

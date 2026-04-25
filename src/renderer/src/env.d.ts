@@ -37,6 +37,13 @@ declare global {
       onMenuOpenFolder: (callback: () => void) => () => void
       onMenuToggleMode: (callback: () => void) => () => void
       newWindow: () => void
+      closeWorkspace: () => void
+      quitApp: () => void
+      openPath: (folderPath: string) => Promise<{ rootPath: string; name: string } | null>
+      getRecentFolders: () => Promise<Array<{ path: string; name: string; lastAccessed: number }>>
+      removeRecentFolder: (folderPath: string) => Promise<void>
+      clearRecentFolders: () => Promise<void>
+      onOpenPath: (callback: (path: string) => void) => () => void
       terminalCreate: (id: number, cwd: string | null) => Promise<{ error?: string; processName?: string } | null>
       terminalWrite: (id: number, data: string) => Promise<boolean>
       terminalResize: (id: number, cols: number, rows: number) => void

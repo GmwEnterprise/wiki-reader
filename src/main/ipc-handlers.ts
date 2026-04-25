@@ -1,4 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
+import { basename } from 'path'
 import {
   openFolderDialog,
   scanMarkdownFiles,
@@ -10,10 +11,48 @@ import {
   unwatchWorkspace
 } from './workspace'
 import { createTerminal, terminalWrite, terminalResize, terminalKill } from './terminal'
+import {
+  addRecentFolder,
+  getRecentFolders,
+  removeRecentFolder,
+  clearRecentFolders
+} from './recent-folders'
 
 export function registerIpcHandlers(): void {
-  ipcMain.handle('workspace:openFolder', async () => {
-    return openFolderDialog()
+  ipcMain.handle('workspace:openFolder', async (event) => {
+    const result = await openFolderDialog()
+    if (result) {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      if (win) {
+        win.setTitle(result.name + ' - Wiki Reader')
+      }
+      addRecentFolder(result.rootPath, result.name)
+    }
+    return result
+  })
+
+  ipcMain.handle('workspace:openPath', async (event, folderPath: string) => {
+    if (typeof folderPath !== 'string' || !folderPath) return null
+    const name = basename(folderPath)
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) {
+      win.setTitle(name + ' - Wiki Reader')
+    }
+    addRecentFolder(folderPath, name)
+    return { rootPath: folderPath, name }
+  })
+
+  ipcMain.handle('recent:getList', async () => {
+    return getRecentFolders()
+  })
+
+  ipcMain.handle('recent:remove', async (_event, folderPath: string) => {
+    if (typeof folderPath !== 'string') return
+    removeRecentFolder(folderPath)
+  })
+
+  ipcMain.handle('recent:clear', async () => {
+    clearRecentFolders()
   })
 
   ipcMain.handle('workspace:scanFiles', async (_event, rootPath: string) => {

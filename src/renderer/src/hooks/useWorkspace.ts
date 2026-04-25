@@ -27,6 +27,28 @@ export function useWorkspace() {
     window.api.watchWorkspace(result.rootPath)
   }, [])
 
+  const openRecentFolder = useCallback(async (folderPath: string) => {
+    const result = await window.api.openPath(folderPath)
+    if (!result) return
+
+    const ws: Workspace = {
+      id: result.rootPath,
+      rootPath: result.rootPath,
+      name: result.name
+    }
+    setWorkspace(ws)
+
+    const scannedFiles = await window.api.scanFiles(result.rootPath)
+    setFiles(scannedFiles)
+
+    window.api.watchWorkspace(result.rootPath)
+  }, [])
+
+  const closeWorkspace = useCallback(() => {
+    setWorkspace(null)
+    setFiles([])
+  }, [])
+
   useEffect(() => {
     if (!workspace) return
     const unsubscribe = window.api.onFilesChanged(() => {
@@ -38,5 +60,5 @@ export function useWorkspace() {
     }
   }, [workspace, refreshFiles])
 
-  return { workspace, files, openFolder }
+  return { workspace, files, openFolder, openRecentFolder, closeWorkspace }
 }
