@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildFileTree, collectDirectoryPaths } from '../../src/renderer/src/components/FileList'
+import {
+  buildFileTree,
+  collectDirectoryPaths,
+  mergeCollapsedWithNewDirectories
+} from '../../src/renderer/src/components/FileList'
 import type { WikiFile } from '../../src/renderer/src/types'
 
 const files: WikiFile[] = [
@@ -13,5 +17,15 @@ describe('FileList tree helpers', () => {
     const tree = buildFileTree(files)
 
     expect(collectDirectoryPaths(tree)).toEqual(['guides', 'guides/deploy'])
+  })
+
+  it('文件树从空列表更新为非空列表时新增目录默认折叠', () => {
+    const previousTree = buildFileTree([])
+    const nextTree = buildFileTree(files)
+
+    expect(Array.from(mergeCollapsedWithNewDirectories(new Set(), previousTree, nextTree))).toEqual([
+      'guides',
+      'guides/deploy'
+    ])
   })
 })

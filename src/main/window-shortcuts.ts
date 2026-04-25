@@ -7,13 +7,31 @@ export type WindowShortcutInput = {
   shift?: boolean
 }
 
-export type WindowShortcutAction = 'none' | 'prevent-default' | 'toggle-devtools'
+export type WindowShortcutAction =
+  | 'none'
+  | 'prevent-default'
+  | 'toggle-devtools'
+  | 'new-window'
+  | 'open-folder'
+  | 'toggle-mode'
 
 export function getWindowShortcutAction(
   input: WindowShortcutInput,
   isDev: boolean
 ): WindowShortcutAction {
   if (input.type !== 'keyDown') return 'none'
+
+  if (input.code === 'KeyO' && (input.control || input.meta) && !input.shift && !input.alt) {
+    return 'open-folder'
+  }
+
+  if (input.code === 'KeyN' && (input.control || input.meta) && input.shift && !input.alt) {
+    return 'new-window'
+  }
+
+  if (input.code === 'Slash' && (input.control || input.meta) && !input.shift && !input.alt) {
+    return 'toggle-mode'
+  }
 
   if (input.code === 'F12') return 'toggle-devtools'
 

@@ -34,6 +34,9 @@ declare global {
       onFilesChanged: (callback: () => void) => () => void
       onBeforeClose: (callback: () => void) => () => void
       confirmClose: () => void
+      onMenuOpenFolder: (callback: () => void) => () => void
+      onMenuToggleMode: (callback: () => void) => () => void
+      newWindow: () => void
       terminalCreate: (id: number, cwd: string | null) => Promise<{ error?: string; processName?: string } | null>
       terminalWrite: (id: number, data: string) => Promise<boolean>
       terminalResize: (id: number, cols: number, rows: number) => void

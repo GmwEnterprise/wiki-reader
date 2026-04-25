@@ -37,6 +37,17 @@ const api = {
     return () => ipcRenderer.removeListener('window:before-close', handler)
   },
   confirmClose: () => ipcRenderer.send('window:confirm-close'),
+  onMenuOpenFolder: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('menu:openFolder', handler)
+    return () => ipcRenderer.removeListener('menu:openFolder', handler)
+  },
+  onMenuToggleMode: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('menu:toggleMode', handler)
+    return () => ipcRenderer.removeListener('menu:toggleMode', handler)
+  },
+  newWindow: () => ipcRenderer.send('window:new-window'),
   terminalCreate: (id: number, cwd: string | null) =>
     ipcRenderer.invoke('terminal:create', id, cwd),
   terminalWrite: (id: number, data: string) =>

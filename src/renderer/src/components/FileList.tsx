@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef, useLayoutEffect } from 'react'
 import type { WikiFile } from '../types'
 
 export type FileTreeNode = {
@@ -62,6 +62,20 @@ export function collectDirectoryPaths(nodes: FileTreeNode[]): string[] {
   return paths
 }
 
+export function mergeCollapsedWithNewDirectories(
+  collapsed: Set<string>,
+  previousTree: FileTreeNode[],
+  nextTree: FileTreeNode[]
+): Set<string> {
+  const previousDirs = new Set(collectDirectoryPaths(previousTree))
+  const addedDirs = collectDirectoryPaths(nextTree).filter((d) => !previousDirs.has(d))
+  if (addedDirs.length === 0) return collapsed
+
+  const next = new Set(collapsed)
+  for (const d of addedDirs) next.add(d)
+  return next
+}
+
 type FileListProps = {
   files: WikiFile[]
   selectedPath: string | null
@@ -76,18 +90,9 @@ export default function FileList({ files, selectedPath, onSelect }: FileListProp
   })
 
   const prevTreeRef = useRef(tree)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (prevTreeRef.current !== tree) {
-      const prevDirs = new Set(collectDirectoryPaths(prevTreeRef.current))
-      const newAllDirs = collectDirectoryPaths(tree)
-      const addedDirs = newAllDirs.filter((d) => !prevDirs.has(d))
-      if (addedDirs.length > 0) {
-        setCollapsed((prev) => {
-          const next = new Set(prev)
-          for (const d of addedDirs) next.add(d)
-          return next
-        })
-      }
+      setCollapsed((prev) => mergeCollapsedWithNewDirectories(prev, prevTreeRef.current, tree))
       prevTreeRef.current = tree
     }
   }, [tree])

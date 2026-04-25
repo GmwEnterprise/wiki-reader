@@ -43,6 +43,10 @@ ipcMain.on('window:confirm-close', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.destroy()
 })
 
+ipcMain.on('window:new-window', () => {
+  createMainWindow()
+})
+
 app.on('window-all-closed', () => {
   killAllTerminals()
   app.quit()

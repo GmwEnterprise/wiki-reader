@@ -70,7 +70,14 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
     urls: {}
   })
 
-  const renderedHtml = useMemo(() => renderMarkdown(source), [source])
+  const renderResult = useMemo(() => {
+    try {
+      return { html: renderMarkdown(source), failed: false }
+    } catch {
+      return { html: '', failed: true }
+    }
+  }, [source])
+  const renderedHtml = renderResult.html
   const activeImageUrls = loadedImages.key === imageContextKey ? loadedImages.urls : {}
   const html = useMemo(() => replaceLocalImageSrc(renderedHtml, activeImageUrls), [renderedHtml, activeImageUrls])
 
@@ -202,6 +209,14 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
       }
     }
   }, [activeImageUrls, currentFilePath, imageContextKey, renderedHtml, workspaceRootPath])
+
+  if (renderResult.failed) {
+    return (
+      <div className="content-inner">
+        <pre className="markdown-fallback">{source}</pre>
+      </div>
+    )
+  }
 
   return (
     <div

@@ -8,6 +8,7 @@ import Sidebar from './components/Sidebar'
 import MarkdownView from './components/MarkdownView'
 import SourceEditor from './components/SourceEditor'
 import TerminalPanel from './components/TerminalPanel'
+import WelcomePage from './components/WelcomePage'
 
 function App(): React.JSX.Element {
   const { workspace, files, openFolder } = useWorkspace()
@@ -23,6 +24,7 @@ function App(): React.JSX.Element {
   })
   const [isMaximized, setIsMaximized] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const isResizing = useRef(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -32,6 +34,42 @@ function App(): React.JSX.Element {
   useEffect(() => {
     return window.api.windowControls.onMaximizedChanged(setIsMaximized)
   }, [])
+
+  const handleOpenFolder = useCallback(async () => {
+    setIsMenuOpen(false)
+    await flushSave()
+    reset()
+    await openFolder()
+  }, [openFolder, reset, flushSave])
+
+  useEffect(() => {
+    const unsub = window.api.onMenuOpenFolder(() => {
+      handleOpenFolder()
+    })
+    return unsub
+  }, [handleOpenFolder])
+
+  useEffect(() => {
+    const unsub = window.api.onMenuToggleMode(() => {
+      if (doc.file && contentBodyRef.current) {
+        scrollPositionRef.current = contentBodyRef.current.scrollTop
+      }
+      if (doc.file) {
+        setMode(doc.mode === 'preview' ? 'source' : 'preview')
+      }
+    })
+    return unsub
+  }, [doc.file, doc.mode, setMode])
+
+  useEffect(() => {
+    if (doc.file && workspace) {
+      const exists = files.some((f) => f.relativePath === doc.file?.relativePath)
+      if (!exists) {
+        setError(`文件已被外部删除: ${doc.file.relativePath}`)
+        reset()
+      }
+    }
+  }, [files, doc.file, workspace, reset])
 
   useEffect(() => {
     if (!isMenuOpen) return
@@ -74,15 +112,9 @@ function App(): React.JSX.Element {
     return unsubscribe
   }, [flushSave])
 
-  const handleOpenFolder = useCallback(async () => {
-    setIsMenuOpen(false)
-    await flushSave()
-    reset()
-    await openFolder()
-  }, [openFolder, reset, flushSave])
-
   const handleOpenFile = useCallback(
     async (file: import('./types').WikiFile) => {
+      setError(null)
       await loadContent(file)
     },
     [loadContent]
@@ -155,6 +187,9 @@ function App(): React.JSX.Element {
                 <button className="toolbar-menu-item" type="button" role="menuitem" onClick={handleOpenFolder}>
                   打开文件夹...
                 </button>
+                <button className="toolbar-menu-item" type="button" role="menuitem" onClick={() => { window.api.newWindow(); setIsMenuOpen(false) }}>
+                  新建窗口
+                </button>
                 <button className="toolbar-menu-item" type="button" role="menuitem" onClick={() => { toggleTheme(); setIsMenuOpen(false) }}>
                   {theme === 'light' ? '切换暗色主题 🌙' : '切换亮色主题 ☀️'}
                 </button>
@@ -190,76 +225,86 @@ function App(): React.JSX.Element {
           </button>
         </div>
       </header>
-      <div className="body">
-        <aside className="sidebar" style={{ width: sidebarWidth }}>
-          {workspace ? (
-            <Sidebar
-              files={files}
-              selectedPath={doc.file?.relativePath ?? null}
-              headings={headings}
-              activeHeadingId={activeId}
-              onSelectFile={handleOpenFile}
-              onJumpHeading={jumpToHeading}
-              hasDocument={!!doc.file}
-            />
-          ) : (
-            <div className="sidebar-empty">未打开文件夹</div>
-          )}
-        </aside>
-        <div className="resize-handle" onMouseDown={handleResizeMouseDown} />
-        <main className="content" onContextMenu={handleContextMenu}>
-          <div ref={contentBodyRef} className="content-body">
-            {doc.file ? (
-              doc.loading ? (
-                <div className="content-loading">加载中...</div>
-              ) : doc.mode === 'preview' ? (
-                <div ref={contentRef} className="content-inner">
-                  <MarkdownView
-                    source={doc.content}
-                    currentFilePath={doc.file?.relativePath ?? null}
-                    workspaceRootPath={workspace?.rootPath ?? null}
-                    files={files}
-                    onOpenFile={handleOpenFile}
-                  />
-                </div>
-              ) : (
-                <SourceEditor
-                  content={doc.content}
-                  onChange={updateContent}
-                  onSave={flushSave}
-                  onEscape={() => {
-                    if (contentBodyRef.current) {
-                      scrollPositionRef.current = contentBodyRef.current.scrollTop
-                    }
-                    setMode('preview')
-                  }}
-                  darkMode={theme === 'dark'}
-                />
-              )
-            ) : (
-              <div className="content-empty">请选择一个 Markdown 文件</div>
-            )}
+      {workspace ? (
+        <>
+          <div className="body">
+            <aside className="sidebar" style={{ width: sidebarWidth }}>
+              <Sidebar
+                files={files}
+                selectedPath={doc.file?.relativePath ?? null}
+                headings={headings}
+                activeHeadingId={activeId}
+                onSelectFile={handleOpenFile}
+                onJumpHeading={jumpToHeading}
+                hasDocument={!!doc.file}
+              />
+            </aside>
+            <div className="resize-handle" onMouseDown={handleResizeMouseDown} />
+            <main className="content" onContextMenu={handleContextMenu}>
+              <div ref={contentBodyRef} className="content-body">
+                {error && (
+                  <div className="content-error">
+                    <p>{error}</p>
+                    <button className="content-error-close" onClick={() => setError(null)}>
+                      关闭
+                    </button>
+                  </div>
+                )}
+                {!error && doc.file ? (
+                  doc.loading ? (
+                    <div className="content-loading">加载中...</div>
+                  ) : doc.mode === 'preview' ? (
+                    <div ref={contentRef} className="content-inner">
+                      <MarkdownView
+                        source={doc.content}
+                        currentFilePath={doc.file?.relativePath ?? null}
+                        workspaceRootPath={workspace?.rootPath ?? null}
+                        files={files}
+                        onOpenFile={handleOpenFile}
+                      />
+                    </div>
+                  ) : (
+                    <SourceEditor
+                      content={doc.content}
+                      onChange={updateContent}
+                      onSave={flushSave}
+                      onEscape={() => {
+                        if (contentBodyRef.current) {
+                          scrollPositionRef.current = contentBodyRef.current.scrollTop
+                        }
+                        setMode('preview')
+                      }}
+                      darkMode={theme === 'dark'}
+                    />
+                  )
+                ) : !error ? (
+                  <div className="content-empty">请选择一个 Markdown 文件</div>
+                ) : null}
+              </div>
+            </main>
           </div>
-        </main>
-      </div>
-      <TerminalPanel
-        terminal={terminal}
-        dark={theme === 'dark'}
-        workspaceRoot={workspace?.rootPath ?? null}
-      />
-      <footer className="statusbar">
-        <div className="statusbar-left" />
-        <div className="statusbar-right">
-          <button
-            className={`statusbar-btn ${terminal.visible ? 'statusbar-btn--active' : ''}`}
-            type="button"
-            onClick={terminal.toggle}
-            title={terminal.visible ? '隐藏终端' : '显示终端'}
-          >
-            ⌨ 终端
-          </button>
-        </div>
-      </footer>
+          <TerminalPanel
+            terminal={terminal}
+            dark={theme === 'dark'}
+            workspaceRoot={workspace?.rootPath ?? null}
+          />
+          <footer className="statusbar">
+            <div className="statusbar-left" />
+            <div className="statusbar-right">
+              <button
+                className={`statusbar-btn ${terminal.visible ? 'statusbar-btn--active' : ''}`}
+                type="button"
+                onClick={terminal.toggle}
+                title={terminal.visible ? '隐藏终端' : '显示终端'}
+              >
+                ⌨ 终端
+              </button>
+            </div>
+          </footer>
+        </>
+      ) : (
+        <WelcomePage onOpenFolder={handleOpenFolder} />
+      )}
     </div>
   )
 }

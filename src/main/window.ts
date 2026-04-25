@@ -67,6 +67,24 @@ export function createMainWindow(): BrowserWindow {
         win.webContents.openDevTools({ mode: 'bottom' })
       }
     }
+
+    if (action === 'open-folder') {
+      event.preventDefault()
+      win.webContents.send('menu:openFolder')
+      return
+    }
+
+    if (action === 'new-window') {
+      event.preventDefault()
+      createMainWindow()
+      return
+    }
+
+    if (action === 'toggle-mode') {
+      event.preventDefault()
+      win.webContents.send('menu:toggleMode')
+      return
+    }
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
