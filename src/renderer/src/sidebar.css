@@ -24,16 +24,26 @@
   min-width: var(--sidebar-min-width);
   max-width: var(--sidebar-max-width-ratio);
   background: var(--sidebar-bg);
-  overflow-y: auto;
+  overflow: hidden;
   flex-shrink: 0;
 }
 
 .resize-handle {
-  width: 4px;
+  width: 1px;
   flex-shrink: 0;
   cursor: col-resize;
-  background: transparent;
+  background: var(--border);
   transition: background 0.15s;
+  position: relative;
+}
+
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
 }
 
 .resize-handle:hover {
@@ -180,77 +190,3 @@
   overflow-y: auto;
 }
 
-.heading-list {
-  padding: var(--sidebar-list-padding-y) 0;
-}
-
-.heading-list-actions {
-  display: flex;
-  gap: var(--sidebar-action-gap);
-  padding: 0 var(--sidebar-node-base-padding) var(--sidebar-list-padding-y);
-}
-
-.heading-list-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-.heading-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--sidebar-node-gap);
-  padding: var(--sidebar-node-padding-y) var(--sidebar-node-base-padding);
-  padding-left: calc(var(--sidebar-node-base-padding) + var(--node-depth, 0) * var(--sidebar-node-indent));
-  font-size: var(--sidebar-node-font-size);
-  line-height: 1.4;
-  color: var(--text);
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.12s, color 0.12s;
-}
-
-.heading-item--level-1 {
-  font-weight: 600;
-}
-
-.heading-item--level-2 {
-  font-weight: 500;
-}
-
-.heading-item--level-3,
-.heading-item--level-4,
-.heading-item--level-5,
-.heading-item--level-6 {
-  color: var(--text-secondary);
-}
-
-.heading-item:hover {
-  background: var(--sidebar-hover-bg);
-}
-
-.heading-item--active {
-  color: var(--accent);
-  background: var(--sidebar-selected-bg);
-}
-
-.heading-item--active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 2px;
-  background: var(--accent);
-  border-radius: 1px;
-}
-
-.heading-item-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}

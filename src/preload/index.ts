@@ -18,6 +18,8 @@ const api = {
   scanFiles: (rootPath: string) => ipcRenderer.invoke('workspace:scanFiles', rootPath),
   readFile: (rootPath: string, relativePath: string) =>
     ipcRenderer.invoke('workspace:readFile', rootPath, relativePath),
+  saveFile: (rootPath: string, relativePath: string, content: string) =>
+    ipcRenderer.invoke('workspace:saveFile', rootPath, relativePath, content),
   readAsset: (rootPath: string, relativePath: string) =>
     ipcRenderer.invoke('workspace:readAsset', rootPath, relativePath),
   watchWorkspace: (rootPath: string) => ipcRenderer.invoke('workspace:watch', rootPath),
@@ -26,7 +28,13 @@ const api = {
     const handler = () => callback()
     ipcRenderer.on('workspace:filesChanged', handler)
     return () => ipcRenderer.removeListener('workspace:filesChanged', handler)
-  }
+  },
+  onBeforeClose: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('window:before-close', handler)
+    return () => ipcRenderer.removeListener('window:before-close', handler)
+  },
+  confirmClose: () => ipcRenderer.send('window:confirm-close')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

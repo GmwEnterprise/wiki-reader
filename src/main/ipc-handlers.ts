@@ -4,6 +4,7 @@ import {
   scanMarkdownFiles,
   readMarkdownFile,
   readWorkspaceAsset,
+  saveMarkdownFile,
   watchWorkspace,
   unwatchWorkspace
 } from './workspace'
@@ -21,6 +22,15 @@ export function registerIpcHandlers(): void {
     try {
       const content = await readMarkdownFile(rootPath, relativePath)
       return { success: true, content }
+    } catch (err: any) {
+      return { success: false, error: err.message }
+    }
+  })
+
+  ipcMain.handle('workspace:saveFile', async (_event, rootPath: string, relativePath: string, content: string) => {
+    try {
+      await saveMarkdownFile(rootPath, relativePath, content)
+      return { success: true }
     } catch (err: any) {
       return { success: false, error: err.message }
     }

@@ -6,8 +6,8 @@ import { getWindowShortcutAction } from './window-shortcuts'
 
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1440,
+    height: 1200,
     minWidth: 800,
     minHeight: 600,
     title: 'Wiki Reader',
@@ -26,6 +26,11 @@ export function createMainWindow(): BrowserWindow {
 
   win.on('ready-to-show', () => {
     win.show()
+  })
+
+  win.on('close', (e) => {
+    e.preventDefault()
+    win.webContents.send('window:before-close')
   })
 
   win.webContents.setWindowOpenHandler((details) => {
@@ -47,7 +52,7 @@ export function createMainWindow(): BrowserWindow {
       if (win.webContents.isDevToolsOpened()) {
         win.webContents.closeDevTools()
       } else {
-        win.webContents.openDevTools({ mode: 'undocked' })
+        win.webContents.openDevTools({ mode: 'bottom' })
       }
     }
   })

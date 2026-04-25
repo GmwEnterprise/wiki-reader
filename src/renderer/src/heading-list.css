@@ -1,0 +1,86 @@
+:root {
+  --heading-list-padding-y: var(--sidebar-list-padding-y, 8px);
+  --heading-list-base-padding: var(--sidebar-node-base-padding, 12px);
+  --heading-list-indent: var(--sidebar-node-indent, 16px);
+  --heading-list-gap: var(--sidebar-node-gap, 6px);
+  --heading-list-padding-y-item: var(--sidebar-node-padding-y, 5px);
+  --heading-list-font-size: var(--sidebar-node-font-size, 13px);
+  --heading-list-hover-bg: var(--sidebar-hover-bg, rgba(0, 0, 0, 0.04));
+  --heading-list-selected-bg: var(--sidebar-selected-bg, rgba(74, 144, 217, 0.1));
+  --heading-list-action-gap: var(--sidebar-action-gap, 4px);
+}
+
+.heading-list {
+  padding: var(--heading-list-padding-y) 0;
+}
+
+.heading-list-actions {
+  display: flex;
+  gap: var(--heading-list-action-gap);
+  padding: 0 var(--heading-list-base-padding) var(--heading-list-padding-y);
+}
+
+.heading-list-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.heading-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--heading-list-gap);
+  padding: var(--heading-list-padding-y-item) var(--heading-list-base-padding);
+  padding-left: calc(var(--heading-list-base-padding) + var(--node-depth, 0) * var(--heading-list-indent));
+  font-size: var(--heading-list-font-size);
+  line-height: 1.4;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, color 0.12s;
+}
+
+.heading-item--level-1 {
+  font-weight: 600;
+}
+
+.heading-item--level-2 {
+  font-weight: 500;
+}
+
+.heading-item--level-3,
+.heading-item--level-4,
+.heading-item--level-5,
+.heading-item--level-6 {
+  color: var(--text-secondary);
+}
+
+.heading-item:hover {
+  background: var(--heading-list-hover-bg);
+}
+
+.heading-item--active {
+  color: var(--accent);
+  background: var(--heading-list-selected-bg);
+}
+
+.heading-item--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+.heading-item-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

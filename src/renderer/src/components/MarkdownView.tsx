@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback, useEffect } from 'react'
+import { useMemo, useRef, useCallback, useEffect, useState } from 'react'
 import { renderMarkdown } from '../utils/markdown'
 import type { WikiFile } from '../types'
 
@@ -33,8 +33,20 @@ const PLACEHOLDER =
 
 const LOCAL_SRC_RE = /(<img\s[^>]*?)src="((?!(?:https?:|data:|file:|\/\/))[^"]+)"([^>]*?>)/g
 
-function replaceLocalImageSrc(html: string): string {
-  return html.replace(LOCAL_SRC_RE, `$1src="${PLACEHOLDER}" data-local-src="$2"$3`)
+export function collectLocalImageSrcs(html: string): string[] {
+  const srcs = new Set<string>()
+  for (const match of html.matchAll(LOCAL_SRC_RE)) {
+    srcs.add(match[2])
+  }
+  return Array.from(srcs)
+}
+
+export function replaceLocalImageSrc(html: string, loadedImages: Record<string, string>): string {
+  return html.replace(LOCAL_SRC_RE, (_match, before: string, src: string, after: string) => {
+    const loadedSrc = loadedImages[src]
+    if (loadedSrc) return `${before}src="${loadedSrc}"${after}`
+    return `${before}src="${PLACEHOLDER}" data-local-src="${src}"${after}`
+  })
 }
 
 const BROKEN_SVG =
@@ -59,8 +71,15 @@ function isLocalLink(href: string): boolean {
 
 export default function MarkdownView({ source, currentFilePath, workspaceRootPath, files, onOpenFile }: MarkdownViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const imageContextKey = `${workspaceRootPath ?? ''}\u0000${currentFilePath ?? ''}\u0000${source}`
+  const [loadedImages, setLoadedImages] = useState<{ key: string; urls: Record<string, string> }>({
+    key: imageContextKey,
+    urls: {}
+  })
 
-  const html = useMemo(() => replaceLocalImageSrc(renderMarkdown(source)), [source])
+  const renderedHtml = useMemo(() => renderMarkdown(source), [source])
+  const activeImageUrls = loadedImages.key === imageContextKey ? loadedImages.urls : {}
+  const html = useMemo(() => replaceLocalImageSrc(renderedHtml, activeImageUrls), [renderedHtml, activeImageUrls])
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement
@@ -97,43 +116,6 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
-    let canceled = false
-
-    const images = container.querySelectorAll('img[data-local-src]')
-    for (const img of images) {
-      const localSrc = img.getAttribute('data-local-src')!
-      if (!workspaceRootPath || !currentFilePath) continue
-
-      let resolved: string
-      try {
-        resolved = resolveRelativePath(currentFilePath, localSrc)
-      } catch {
-        img.removeAttribute('data-local-src')
-        img.setAttribute('data-broken', 'true')
-        img.alt = img.alt || '图片无法加载'
-        img.src = BROKEN_SVG
-        continue
-      }
-
-      window.api.readAsset(workspaceRootPath, resolved).then((result) => {
-        if (canceled) return
-        if (result.success && result.dataUrl) {
-          img.src = result.dataUrl
-        } else {
-          img.removeAttribute('data-local-src')
-          img.setAttribute('data-broken', 'true')
-          img.alt = img.alt || '图片无法加载'
-          img.src = BROKEN_SVG
-          console.warn('[MarkdownView] 图片加载失败:', localSrc, '→', resolved, result.error)
-        }
-      }).catch(() => {
-        if (canceled) return
-        img.removeAttribute('data-local-src')
-        img.setAttribute('data-broken', 'true')
-        img.alt = img.alt || '图片无法加载'
-        img.src = BROKEN_SVG
-      })
-    }
 
     const externalImages = container.querySelectorAll('img:not([data-local-src])')
     for (const img of externalImages) {
@@ -144,11 +126,51 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
         img.src = BROKEN_SVG
       })
     }
+  }, [html])
+
+  useEffect(() => {
+    if (!workspaceRootPath || !currentFilePath) return
+
+    let cancelled = false
+    const localSrcs = collectLocalImageSrcs(renderedHtml).filter((src) => !activeImageUrls[src])
+    if (localSrcs.length === 0) return
+
+    for (const localSrc of localSrcs) {
+      const setImageSrc = (src: string): void => {
+        if (cancelled) return
+        setLoadedImages((current) => ({
+          key: imageContextKey,
+          urls: {
+            ...(current.key === imageContextKey ? current.urls : {}),
+            [localSrc]: src
+          }
+        }))
+      }
+
+      let resolved: string
+      try {
+        resolved = resolveRelativePath(currentFilePath, localSrc)
+      } catch {
+        setImageSrc(BROKEN_SVG)
+        continue
+      }
+
+      window.api.readAsset(workspaceRootPath, resolved).then((result) => {
+        if (result.success && result.dataUrl) {
+          setImageSrc(result.dataUrl)
+        } else {
+          setImageSrc(BROKEN_SVG)
+          console.warn('[MarkdownView] 图片加载失败:', localSrc, '→', resolved, result.error)
+        }
+      }).catch(() => {
+        setImageSrc(BROKEN_SVG)
+      })
+    }
 
     return () => {
-      canceled = true
+      cancelled = true
     }
-  }, [html, workspaceRootPath, currentFilePath])
+  }, [activeImageUrls, currentFilePath, imageContextKey, renderedHtml, workspaceRootPath])
 
   return (
     <div

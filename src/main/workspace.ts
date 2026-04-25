@@ -1,5 +1,5 @@
 import { dialog } from 'electron'
-import { readdir, stat, readFile } from 'fs/promises'
+import { readdir, stat, readFile, writeFile } from 'fs/promises'
 import { join, extname, basename, relative, normalize, sep } from 'path'
 import chokidar from 'chokidar'
 import type { FSWatcher } from 'chokidar'
@@ -74,6 +74,19 @@ export async function readMarkdownFile(rootPath: string, relativePath: string): 
   const resolved = await validatePath(rootPath, fullPath)
   if (!resolved) throw new Error(`路径不合法: ${relativePath}`)
   return readFile(fullPath, 'utf-8')
+}
+
+export async function saveMarkdownFile(
+  rootPath: string,
+  relativePath: string,
+  content: string
+): Promise<void> {
+  const fullPath = join(rootPath, relativePath)
+  const valid = await validatePath(rootPath, fullPath)
+  if (!valid) throw new Error(`路径不合法: ${relativePath}`)
+  const ext = extname(relativePath).toLowerCase()
+  if (!MD_EXTENSIONS.has(ext)) throw new Error(`不是 Markdown 文件: ${relativePath}`)
+  await writeFile(fullPath, content, 'utf-8')
 }
 
 export async function readWorkspaceAsset(rootPath: string, relativePath: string): Promise<string> {

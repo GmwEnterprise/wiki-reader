@@ -1,11 +1,16 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useWorkspace } from './hooks/useWorkspace'
+import { useDocument } from './hooks/useDocument'
 import { useHeadings } from './hooks/useHeadings'
 import Sidebar from './components/Sidebar'
 import MarkdownView from './components/MarkdownView'
+import SourceEditor from './components/SourceEditor'
 
 function App(): React.JSX.Element {
-  const { workspace, files, doc, openFolder, openFile } = useWorkspace()
+  const { workspace, files, openFolder } = useWorkspace()
+  const { doc, loadContent, updateContent, flushSave, setMode, reset } = useDocument(
+    workspace?.rootPath ?? null
+  )
   const { headings, activeId, setupObserver, jumpToHeading } = useHeadings(doc.content)
   const [sidebarWidth, setSidebarWidth] = useState(240)
   const [isMaximized, setIsMaximized] = useState(false)
@@ -30,19 +35,45 @@ function App(): React.JSX.Element {
     return () => document.removeEventListener('pointerdown', handlePointerDown)
   }, [isMenuOpen])
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!doc.file) return
+      e.preventDefault()
+      setMode(doc.mode === 'preview' ? 'source' : 'preview')
+    },
+    [doc.file, doc.mode, setMode]
+  )
+
+  useEffect(() => {
+    const unsubscribe = window.api.onBeforeClose(async () => {
+      await flushSave()
+      window.api.confirmClose()
+    })
+    return unsubscribe
+  }, [flushSave])
+
   const handleOpenFolder = useCallback(async () => {
     setIsMenuOpen(false)
+    await flushSave()
+    reset()
     await openFolder()
-  }, [openFolder])
+  }, [openFolder, reset, flushSave])
+
+  const handleOpenFile = useCallback(
+    async (file: import('./types').WikiFile) => {
+      await loadContent(file)
+    },
+    [loadContent]
+  )
 
   const contentRefCallback = useCallback(
     (el: HTMLDivElement | null) => {
       contentRef.current = el
-      if (doc.file) {
+      if (doc.mode === 'preview' && doc.file) {
         setupObserver(el)
       }
     },
-    [doc.file, setupObserver]
+    [doc.mode, doc.file, setupObserver]
   )
 
   const handleResizeMouseDown = useCallback(
@@ -54,7 +85,10 @@ function App(): React.JSX.Element {
 
       const onMouseMove = (e: MouseEvent): void => {
         if (!isResizing.current) return
-        const newWidth = Math.min(window.innerWidth / 2, Math.max(200, startWidth + e.clientX - startX))
+        const newWidth = Math.min(
+          window.innerWidth / 2,
+          Math.max(200, startWidth + e.clientX - startX)
+        )
         setSidebarWidth(newWidth)
       }
 
@@ -99,9 +133,6 @@ function App(): React.JSX.Element {
         </div>
         <div className="toolbar-title">{workspace?.name ?? '笔记'}</div>
         <div className="toolbar-right">
-          <span className="toolbar-status">
-            {doc.file ? (doc.dirty ? '未保存' : '已保存') : ''}
-          </span>
         </div>
         <div className="window-controls">
           <button
@@ -138,7 +169,7 @@ function App(): React.JSX.Element {
               selectedPath={doc.file?.relativePath ?? null}
               headings={headings}
               activeHeadingId={activeId}
-              onSelectFile={openFile}
+              onSelectFile={handleOpenFile}
               onJumpHeading={jumpToHeading}
               hasDocument={!!doc.file}
             />
@@ -147,20 +178,30 @@ function App(): React.JSX.Element {
           )}
         </aside>
         <div className="resize-handle" onMouseDown={handleResizeMouseDown} />
-        <main className="content">
-          {doc.file ? (
-            <div ref={contentRefCallback} className="content-inner">
-              <MarkdownView
-                source={doc.content}
-                currentFilePath={doc.file?.relativePath ?? null}
-                workspaceRootPath={workspace?.rootPath ?? null}
-                files={files}
-                onOpenFile={openFile}
-              />
-            </div>
-          ) : (
-            <div className="content-empty">请选择一个 Markdown 文件</div>
-          )}
+        <main className="content" onContextMenu={handleContextMenu}>
+          <div className="content-body">
+            {doc.file ? (
+              doc.mode === 'preview' ? (
+                <div ref={contentRefCallback} className="content-inner">
+                  <MarkdownView
+                    source={doc.content}
+                    currentFilePath={doc.file?.relativePath ?? null}
+                    workspaceRootPath={workspace?.rootPath ?? null}
+                    files={files}
+                    onOpenFile={handleOpenFile}
+                  />
+                </div>
+              ) : (
+                <SourceEditor
+                  content={doc.content}
+                  onChange={updateContent}
+                  onSave={flushSave}
+                />
+              )
+            ) : (
+              <div className="content-empty">请选择一个 Markdown 文件</div>
+            )}
+          </div>
         </main>
       </div>
     </div>

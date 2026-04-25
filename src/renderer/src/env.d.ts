@@ -17,6 +17,11 @@ declare global {
         rootPath: string,
         relativePath: string
       ) => Promise<{ success: boolean; content?: string; error?: string }>
+      saveFile: (
+        rootPath: string,
+        relativePath: string,
+        content: string
+      ) => Promise<{ success: boolean; error?: string }>
       readAsset: (
         rootPath: string,
         relativePath: string
@@ -24,6 +29,8 @@ declare global {
       watchWorkspace: (rootPath: string) => Promise<void>
       unwatchWorkspace: (rootPath: string) => Promise<void>
       onFilesChanged: (callback: () => void) => () => void
+      onBeforeClose: (callback: () => void) => () => void
+      confirmClose: () => void
     }
   }
 }

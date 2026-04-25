@@ -38,6 +38,10 @@ ipcMain.on('window:close', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.close()
 })
 
+ipcMain.on('window:confirm-close', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.destroy()
+})
+
 app.on('window-all-closed', () => {
   app.quit()
 })
