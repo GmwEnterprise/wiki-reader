@@ -42,7 +42,9 @@ if (!gotTheLock) {
 
     registerIpcHandlers()
     refreshJumpList()
-    createMainWindow()
+
+    const openPath = parseOpenArg(process.argv)
+    createMainWindow(openPath ?? undefined)
   })
 }
 
