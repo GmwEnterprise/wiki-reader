@@ -21,10 +21,22 @@ try {
 interface PtyEntry {
   process: IPty
   windowId: number
+  terminalId: number
+  buffer: string
+  flushTimer: ReturnType<typeof setTimeout> | null
+  truncated: boolean
+  closed: boolean
 }
 
-// 当前多终端功能只覆盖单窗口场景；Phase 7 多窗口接入时，key 需要改为 windowId + terminalId。
-const ptyInstances = new Map<number, PtyEntry>()
+const TERMINAL_FLUSH_DELAY_MS = 32
+const TERMINAL_BUFFER_LIMIT = 2 * 1024 * 1024
+const TERMINAL_TRUNCATED_MESSAGE = '\r\n[输出过快，已截断部分内容]\r\n'
+
+export function getTerminalKey(windowId: number, terminalId: number): string {
+  return `${windowId}:${terminalId}`
+}
+
+const ptyInstances = new Map<string, PtyEntry>()
 const windowCleanupRegistered = new Set<number>()
 
 function isValidCwd(cwd: string): boolean {
@@ -62,6 +74,54 @@ function ensureWindowCleanup(win: BrowserWindow): void {
   })
 }
 
+function clearTerminalFlush(entry: PtyEntry): void {
+  if (entry.flushTimer) {
+    clearTimeout(entry.flushTimer)
+    entry.flushTimer = null
+  }
+  entry.buffer = ''
+  entry.truncated = false
+}
+
+function appendTerminalOutput(entry: PtyEntry, data: string): void {
+  entry.buffer += data
+  if (entry.buffer.length <= TERMINAL_BUFFER_LIMIT) return
+
+  const tailLimit = Math.max(0, TERMINAL_BUFFER_LIMIT - TERMINAL_TRUNCATED_MESSAGE.length)
+  entry.buffer = entry.buffer.slice(-tailLimit)
+
+  if (!entry.truncated) {
+    entry.truncated = true
+  }
+  entry.buffer = TERMINAL_TRUNCATED_MESSAGE + entry.buffer
+}
+
+function flushTerminalOutput(win: BrowserWindow, entry: PtyEntry): void {
+  if (entry.flushTimer) {
+    clearTimeout(entry.flushTimer)
+    entry.flushTimer = null
+  }
+  if (!entry.buffer) {
+    entry.truncated = false
+    return
+  }
+
+  const data = entry.buffer
+  entry.buffer = ''
+  entry.truncated = false
+
+  if (!entry.closed && !win.isDestroyed()) {
+    win.webContents.send('terminal:data', entry.terminalId, data)
+  }
+}
+
+function scheduleTerminalFlush(win: BrowserWindow, entry: PtyEntry): void {
+  if (entry.flushTimer) return
+  entry.flushTimer = setTimeout(() => {
+    flushTerminalOutput(win, entry)
+  }, TERMINAL_FLUSH_DELAY_MS)
+}
+
 export function createTerminal(
   win: BrowserWindow,
   cwd: string | null,
@@ -70,7 +130,10 @@ export function createTerminal(
   if (!pty) {
     return { error: '终端不可用：node-pty 模块加载失败' }
   }
-  if (ptyInstances.has(id)) {
+
+  const windowId = win.id
+  const key = getTerminalKey(windowId, id)
+  if (ptyInstances.has(key)) {
     return null
   }
 
@@ -89,31 +152,46 @@ export function createTerminal(
     return { error: `终端启动失败: ${err.message}` }
   }
 
+  const entry: PtyEntry = {
+    process: ptyProcess,
+    windowId,
+    terminalId: id,
+    buffer: '',
+    flushTimer: null,
+    truncated: false,
+    closed: false
+  }
+  ptyInstances.set(key, entry)
+
   ptyProcess.onData((data: string) => {
-    if (!win.isDestroyed()) {
-      win.webContents.send('terminal:data', id, data)
-    }
+    const current = ptyInstances.get(key)
+    if (current?.process !== ptyProcess || current.closed || win.isDestroyed()) return
+
+    appendTerminalOutput(current, data)
+    scheduleTerminalFlush(win, current)
   })
 
   ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
-    const current = ptyInstances.get(id)
+    const current = ptyInstances.get(key)
     if (current?.process !== ptyProcess) return
 
+    flushTerminalOutput(win, current)
+    current.closed = true
+    clearTerminalFlush(current)
     if (!win.isDestroyed()) {
       win.webContents.send('terminal:exit', id, exitCode)
     }
-    ptyInstances.delete(id)
+    ptyInstances.delete(key)
   })
 
-  ptyInstances.set(id, { process: ptyProcess, windowId: win.id })
   ensureWindowCleanup(win)
 
   const processName = getTerminalProcessName(shell)
   return { processName }
 }
 
-export function terminalWrite(id: number, data: string): boolean {
-  const entry = ptyInstances.get(id)
+export function terminalWrite(windowId: number, id: number, data: string): boolean {
+  const entry = ptyInstances.get(getTerminalKey(windowId, id))
   if (!entry) return false
   try {
     entry.process.write(data)
@@ -123,8 +201,8 @@ export function terminalWrite(id: number, data: string): boolean {
   }
 }
 
-export function terminalResize(id: number, cols: number, rows: number): void {
-  const entry = ptyInstances.get(id)
+export function terminalResize(windowId: number, id: number, cols: number, rows: number): void {
+  const entry = ptyInstances.get(getTerminalKey(windowId, id))
   if (entry) {
     try {
       entry.process.resize(cols, rows)
@@ -134,35 +212,42 @@ export function terminalResize(id: number, cols: number, rows: number): void {
   }
 }
 
-export function terminalKill(id: number): void {
-  const entry = ptyInstances.get(id)
+export function terminalKill(windowId: number, id: number): void {
+  const key = getTerminalKey(windowId, id)
+  const entry = ptyInstances.get(key)
   if (entry) {
+    entry.closed = true
+    clearTerminalFlush(entry)
     try {
       entry.process.kill()
     } catch {
       // already dead
     }
-    ptyInstances.delete(id)
+    ptyInstances.delete(key)
   }
 }
 
 export function killWindowTerminals(windowId: number): void {
-  const ids: number[] = []
-  for (const [id, entry] of ptyInstances) {
+  const keys: string[] = []
+  for (const [key, entry] of ptyInstances) {
     if (entry.windowId === windowId) {
+      entry.closed = true
+      clearTerminalFlush(entry)
       try {
         entry.process.kill()
       } catch {
         // already dead
       }
-      ids.push(id)
+      keys.push(key)
     }
   }
-  ids.forEach((id) => ptyInstances.delete(id))
+  keys.forEach((key) => ptyInstances.delete(key))
 }
 
 export function killAllTerminals(): void {
   for (const [, entry] of ptyInstances) {
+    entry.closed = true
+    clearTerminalFlush(entry)
     try {
       entry.process.kill()
     } catch {

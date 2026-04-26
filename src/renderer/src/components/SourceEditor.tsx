@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { forwardRef, useRef, useEffect, useImperativeHandle } from 'react'
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
@@ -10,21 +10,32 @@ const darkThemeCompartment = new Compartment()
 
 type SourceEditorProps = {
   content: string
-  onChange: (value: string) => void
+  onDirty: () => void
   onSave: () => void
   onEscape: () => void
   darkMode?: boolean
 }
 
-export default function SourceEditor({ content, onChange, onSave, onEscape, darkMode = false }: SourceEditorProps) {
+export type SourceEditorHandle = {
+  getContent: () => string
+}
+
+const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(function SourceEditor(
+  { content, onDirty, onSave, onEscape, darkMode = false },
+  ref
+) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
-  const onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
+  const onDirtyRef = useRef(onDirty)
+  onDirtyRef.current = onDirty
   const onSaveRef = useRef(onSave)
   onSaveRef.current = onSave
   const onEscapeRef = useRef(onEscape)
   onEscapeRef.current = onEscape
+
+  useImperativeHandle(ref, () => ({
+    getContent: () => viewRef.current?.state.doc.toString() ?? content
+  }), [content])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -57,7 +68,7 @@ export default function SourceEditor({ content, onChange, onSave, onEscape, dark
         ]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
-            onChangeRef.current(update.state.doc.toString())
+            onDirtyRef.current()
           }
         }),
         EditorView.lineWrapping,
@@ -120,4 +131,6 @@ export default function SourceEditor({ content, onChange, onSave, onEscape, dark
   }, [content])
 
   return <div ref={containerRef} className="source-editor" />
-}
+})
+
+export default SourceEditor

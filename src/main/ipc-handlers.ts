@@ -18,6 +18,40 @@ import {
   clearRecentFolders
 } from './recent-folders'
 
+const workspaceWatchCallbacks = new Map<string, () => void>()
+const workspaceWatchClosedHandlers = new Set<number>()
+
+function getWorkspaceWatchKey(winId: number, rootPath: string): string {
+  return `${winId}:${rootPath}`
+}
+
+function parseWorkspaceWatchKey(key: string): { winId: number; rootPath: string } | null {
+  const separatorIndex = key.indexOf(':')
+  if (separatorIndex === -1) return null
+
+  const winId = Number(key.slice(0, separatorIndex))
+  if (!Number.isFinite(winId)) return null
+
+  return { winId, rootPath: key.slice(separatorIndex + 1) }
+}
+
+function ensureWorkspaceWatchCleanup(win: BrowserWindow): void {
+  if (workspaceWatchClosedHandlers.has(win.id)) return
+
+  workspaceWatchClosedHandlers.add(win.id)
+  win.once('closed', () => {
+    workspaceWatchClosedHandlers.delete(win.id)
+
+    for (const [key, callback] of workspaceWatchCallbacks) {
+      const parsedKey = parseWorkspaceWatchKey(key)
+      if (!parsedKey || parsedKey.winId !== win.id) continue
+
+      unwatchWorkspace(parsedKey.rootPath, callback)
+      workspaceWatchCallbacks.delete(key)
+    }
+  })
+}
+
 export function registerIpcHandlers(): void {
   ipcMain.handle('workspace:openFolder', async (event) => {
     const result = await openFolderDialog()
@@ -96,16 +130,36 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('workspace:watch', (event, rootPath: string) => {
-    watchWorkspace(rootPath, () => {
-      const win = BrowserWindow.fromWebContents(event.sender)
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    ensureWorkspaceWatchCleanup(win)
+
+    const key = getWorkspaceWatchKey(win.id, rootPath)
+    const existingCallback = workspaceWatchCallbacks.get(key)
+    if (existingCallback) {
+      unwatchWorkspace(rootPath, existingCallback)
+    }
+
+    const callback = (): void => {
       if (win && !win.isDestroyed()) {
         win.webContents.send('workspace:filesChanged')
       }
-    })
+    }
+
+    workspaceWatchCallbacks.set(key, callback)
+    watchWorkspace(rootPath, callback)
   })
 
-  ipcMain.handle('workspace:unwatch', (_event, rootPath: string) => {
-    unwatchWorkspace(rootPath)
+  ipcMain.handle('workspace:unwatch', (event, rootPath: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+
+    const key = getWorkspaceWatchKey(win.id, rootPath)
+    const callback = workspaceWatchCallbacks.get(key)
+    if (!callback) return
+
+    unwatchWorkspace(rootPath, callback)
+    workspaceWatchCallbacks.delete(key)
   })
 
   ipcMain.handle('terminal:create', (event, id: number, cwd: string | null) => {
@@ -115,19 +169,25 @@ export function registerIpcHandlers(): void {
     return createTerminal(win, cwd, id)
   })
 
-  ipcMain.handle('terminal:write', (_event, id: number, data: string) => {
+  ipcMain.handle('terminal:write', (event, id: number, data: string) => {
     if (typeof id !== 'number' || typeof data !== 'string') return false
-    return terminalWrite(id, data)
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return false
+    return terminalWrite(win.id, id, data)
   })
 
-  ipcMain.on('terminal:resize', (_event, id: number, cols: number, rows: number) => {
+  ipcMain.on('terminal:resize', (event, id: number, cols: number, rows: number) => {
     if (typeof id !== 'number' || typeof cols !== 'number' || typeof rows !== 'number') return
     if (cols <= 0 || rows <= 0) return
-    terminalResize(id, cols, rows)
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    terminalResize(win.id, id, cols, rows)
   })
 
-  ipcMain.handle('terminal:kill', (_event, id: number) => {
+  ipcMain.handle('terminal:kill', (event, id: number) => {
     if (typeof id !== 'number') return
-    terminalKill(id)
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    terminalKill(win.id, id)
   })
 }

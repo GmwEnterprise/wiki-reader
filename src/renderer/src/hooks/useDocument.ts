@@ -1,8 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import type { WikiFile, DocumentState } from '../types'
 
-const AUTO_SAVE_DELAY = 1000
-
 export function useDocument(workspaceRootPath: string | null) {
   const [doc, setDoc] = useState<DocumentState>({
     file: null,
@@ -16,22 +14,44 @@ export function useDocument(workspaceRootPath: string | null) {
   const docRef = useRef(doc)
   docRef.current = doc
   const loadSeqRef = useRef(0)
+  const editVersionRef = useRef(0)
 
-  const saveCurrentDoc = useCallback(async () => {
+  const saveCurrentDoc = useCallback(async (contentOverride?: string) => {
     const current = docRef.current
-    if (!current.file || !workspaceRootPath || !current.dirty) return
-    const savedContent = current.content
+    if (!current.file || !workspaceRootPath) return
+    const savedRelativePath = current.file.relativePath
+    const savedEditVersion = editVersionRef.current
+    const savedContent = contentOverride ?? current.content
+    if (!current.dirty && savedContent === current.originalContent) return
     const result = await window.api.saveFile(
       workspaceRootPath,
-      current.file.relativePath,
+      savedRelativePath,
       savedContent
     )
     if (result.success) {
-      setDoc((prev) => ({
-        ...prev,
-        originalContent: savedContent,
-        dirty: prev.content !== savedContent
-      }))
+      if (
+        docRef.current.file?.relativePath === savedRelativePath &&
+        editVersionRef.current === savedEditVersion
+      ) {
+        docRef.current = {
+          ...docRef.current,
+          content: savedContent,
+          originalContent: savedContent,
+          dirty: false
+        }
+      }
+      setDoc((prev) => {
+        if (
+          prev.file?.relativePath !== savedRelativePath ||
+          editVersionRef.current !== savedEditVersion
+        ) return prev
+        return {
+          ...prev,
+          content: savedContent,
+          originalContent: savedContent,
+          dirty: false
+        }
+      })
     }
   }, [workspaceRootPath])
 
@@ -47,52 +67,69 @@ export function useDocument(workspaceRootPath: string | null) {
       if (!workspaceRootPath) return
       const seq = ++loadSeqRef.current
       cancelAutoSave()
-      await saveCurrentDoc()
-      if (seq !== loadSeqRef.current) return
       setDoc((prev) => ({ ...prev, loading: true }))
       const result = await window.api.readFile(workspaceRootPath, file.relativePath)
       if (seq !== loadSeqRef.current) return
+      editVersionRef.current += 1
       if (result.success && result.content !== undefined) {
-        setDoc({
+        const next = {
           file,
           content: result.content,
           originalContent: result.content,
-          mode: 'preview',
+          mode: 'preview' as const,
           dirty: false,
           loading: false
-        })
+        }
+        docRef.current = next
+        setDoc(next)
       } else {
-        setDoc({
+        const next = {
           file,
           content: `读取失败: ${result.error}`,
           originalContent: '',
-          mode: 'preview',
+          mode: 'preview' as const,
           dirty: false,
           loading: false
-        })
+        }
+        docRef.current = next
+        setDoc(next)
       }
     },
-    [workspaceRootPath, saveCurrentDoc, cancelAutoSave]
+    [workspaceRootPath, cancelAutoSave]
   )
 
-  const updateContent = useCallback(
-    (newContent: string) => {
-      setDoc((prev) => ({
-        ...prev,
-        content: newContent,
-        dirty: newContent !== prev.originalContent
-      }))
+  const markDirty = useCallback(
+    () => {
+      editVersionRef.current += 1
+      setDoc((prev) => {
+        if (prev.dirty) return prev
+        const next = {
+          ...prev,
+          dirty: true
+        }
+        docRef.current = next
+        return next
+      })
       cancelAutoSave()
-      autoSaveTimerRef.current = setTimeout(() => {
-        saveCurrentDoc()
-      }, AUTO_SAVE_DELAY)
     },
-    [saveCurrentDoc, cancelAutoSave]
+    [cancelAutoSave]
   )
 
-  const flushSave = useCallback(async () => {
+  const syncContent = useCallback((content: string) => {
+    setDoc((prev) => {
+      const next = {
+        ...prev,
+        content,
+        dirty: content !== prev.originalContent
+      }
+      docRef.current = next
+      return next
+    })
+  }, [])
+
+  const flushSave = useCallback(async (contentOverride?: string) => {
     cancelAutoSave()
-    await saveCurrentDoc()
+    await saveCurrentDoc(contentOverride)
   }, [saveCurrentDoc, cancelAutoSave])
 
   const setMode = useCallback((mode: 'preview' | 'source') => {
@@ -101,8 +138,18 @@ export function useDocument(workspaceRootPath: string | null) {
 
   const reset = useCallback(() => {
     cancelAutoSave()
-    setDoc({ file: null, content: '', originalContent: '', mode: 'preview', dirty: false, loading: false })
+    editVersionRef.current += 1
+    const next = {
+      file: null,
+      content: '',
+      originalContent: '',
+      mode: 'preview' as const,
+      dirty: false,
+      loading: false
+    }
+    docRef.current = next
+    setDoc(next)
   }, [cancelAutoSave])
 
-  return { doc, loadContent, updateContent, flushSave, setMode, reset }
+  return { doc, loadContent, markDirty, syncContent, flushSave, setMode, reset }
 }

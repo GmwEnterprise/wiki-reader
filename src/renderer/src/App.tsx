@@ -6,14 +6,14 @@ import { useTheme } from './hooks/useTheme'
 import { useTerminalTabs } from './hooks/useTerminalTabs'
 import Sidebar from './components/Sidebar'
 import MarkdownView from './components/MarkdownView'
-import SourceEditor from './components/SourceEditor'
+import SourceEditor, { type SourceEditorHandle } from './components/SourceEditor'
 import TerminalPanel from './components/TerminalPanel'
 import WelcomePage from './components/WelcomePage'
 
 function App(): React.JSX.Element {
   const { workspace, files, openFolder, openRecentFolder, closeWorkspace } = useWorkspace()
   const { theme, toggleTheme } = useTheme()
-  const { doc, loadContent, updateContent, flushSave, setMode, reset } = useDocument(
+  const { doc, loadContent, markDirty, syncContent, flushSave, setMode, reset } = useDocument(
     workspace?.rootPath ?? null
   )
   const { headings, activeId, setupObserver, jumpToHeading } = useHeadings(doc.content)
@@ -30,6 +30,38 @@ function App(): React.JSX.Element {
   const contentRef = useRef<HTMLDivElement>(null)
   const scrollPositionRef = useRef<number>(0)
   const contentBodyRef = useRef<HTMLDivElement>(null)
+  const sourceEditorRef = useRef<SourceEditorHandle>(null)
+
+  const flushCurrentEditorSave = useCallback(async () => {
+    if (doc.mode !== 'source') {
+      await flushSave(undefined)
+      return
+    }
+
+    let content = sourceEditorRef.current?.getContent()
+    if (content === undefined) {
+      await flushSave(undefined)
+      return
+    }
+
+    while (true) {
+      await flushSave(content)
+      const latestContent = sourceEditorRef.current?.getContent()
+      if (latestContent === undefined || latestContent === content) return
+      content = latestContent
+    }
+  }, [doc.mode, flushSave])
+
+  const switchToPreview = useCallback(() => {
+    if (contentBodyRef.current) {
+      scrollPositionRef.current = contentBodyRef.current.scrollTop
+    }
+    const sourceContent = sourceEditorRef.current?.getContent()
+    if (sourceContent !== undefined) {
+      syncContent(sourceContent)
+    }
+    setMode('preview')
+  }, [setMode, syncContent])
 
   useEffect(() => {
     return window.api.windowControls.onMaximizedChanged(setIsMaximized)
@@ -37,24 +69,24 @@ function App(): React.JSX.Element {
 
   const handleOpenFolder = useCallback(async () => {
     setIsMenuOpen(false)
-    await flushSave()
+    await flushCurrentEditorSave()
     reset()
     await openFolder()
-  }, [openFolder, reset, flushSave])
+  }, [openFolder, reset, flushCurrentEditorSave])
 
   const handleOpenRecent = useCallback(async (path: string) => {
-    await flushSave()
+    await flushCurrentEditorSave()
     reset()
     await openRecentFolder(path)
-  }, [openRecentFolder, reset, flushSave])
+  }, [openRecentFolder, reset, flushCurrentEditorSave])
 
   const handleCloseWorkspace = useCallback(async () => {
     setIsMenuOpen(false)
-    await flushSave()
+    await flushCurrentEditorSave()
     reset()
     closeWorkspace()
     window.api.closeWorkspace()
-  }, [flushSave, reset, closeWorkspace])
+  }, [flushCurrentEditorSave, reset, closeWorkspace])
 
   useEffect(() => {
     const unsub = window.api.onMenuOpenFolder(() => {
@@ -76,11 +108,15 @@ function App(): React.JSX.Element {
         scrollPositionRef.current = contentBodyRef.current.scrollTop
       }
       if (doc.file) {
-        setMode(doc.mode === 'preview' ? 'source' : 'preview')
+        if (doc.mode === 'preview') {
+          setMode('source')
+        } else {
+          switchToPreview()
+        }
       }
     })
     return unsub
-  }, [doc.file, doc.mode, setMode])
+  }, [doc.file, doc.mode, setMode, switchToPreview])
 
   useEffect(() => {
     if (doc.file && workspace) {
@@ -111,16 +147,20 @@ function App(): React.JSX.Element {
       if (contentBodyRef.current) {
         scrollPositionRef.current = contentBodyRef.current.scrollTop
       }
-      setMode(doc.mode === 'preview' ? 'source' : 'preview')
+      if (doc.mode === 'preview') {
+        setMode('source')
+      } else {
+        switchToPreview()
+      }
     },
-    [doc.file, doc.mode, setMode]
+    [doc.file, doc.mode, setMode, switchToPreview]
   )
 
   useEffect(() => {
     const unsubscribe = window.api.onBeforeClose(async () => {
       try {
         await Promise.race([
-          flushSave(),
+          flushCurrentEditorSave(),
           new Promise<void>((_, reject) =>
             setTimeout(() => reject(new Error('save timeout')), 2000)
           )
@@ -131,14 +171,15 @@ function App(): React.JSX.Element {
       window.api.confirmClose()
     })
     return unsubscribe
-  }, [flushSave])
+  }, [flushCurrentEditorSave])
 
   const handleOpenFile = useCallback(
     async (file: import('./types').WikiFile) => {
       setError(null)
+      await flushCurrentEditorSave()
       await loadContent(file)
     },
-    [loadContent]
+    [loadContent, flushCurrentEditorSave]
   )
 
   useEffect(() => {
@@ -297,15 +338,11 @@ function App(): React.JSX.Element {
                     </div>
                   ) : (
                     <SourceEditor
+                      ref={sourceEditorRef}
                       content={doc.content}
-                      onChange={updateContent}
-                      onSave={flushSave}
-                      onEscape={() => {
-                        if (contentBodyRef.current) {
-                          scrollPositionRef.current = contentBodyRef.current.scrollTop
-                        }
-                        setMode('preview')
-                      }}
+                      onDirty={markDirty}
+                      onSave={() => flushSave(sourceEditorRef.current?.getContent())}
+                      onEscape={switchToPreview}
                       darkMode={theme === 'dark'}
                     />
                   )

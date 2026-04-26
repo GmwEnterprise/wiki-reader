@@ -17,7 +17,17 @@ const IMAGE_MIME_TYPES = new Map([
   ['.bmp', 'image/bmp'],
   ['.ico', 'image/x-icon']
 ])
-const watchers = new Map<string, FSWatcher>()
+const WATCH_DEBOUNCE_MS = 500
+
+type WatchState = {
+  watcher: FSWatcher
+  timer: ReturnType<typeof setTimeout> | null
+  structureChanged: boolean
+  subscribers: Set<() => void>
+  closed: boolean
+}
+
+const watchers = new Map<string, WatchState>()
 
 export async function openFolderDialog(): Promise<{ rootPath: string; name: string } | null> {
   const result = await dialog.showOpenDialog({
@@ -118,23 +128,66 @@ export async function validatePath(rootPath: string, targetPath: string): Promis
 }
 
 export function watchWorkspace(rootPath: string, onChange: () => void): void {
-  const watcher = chokidar.watch('**/*.md', {
+  const existingState = watchers.get(rootPath)
+  if (existingState && !existingState.closed) {
+    existingState.subscribers.add(onChange)
+    return
+  }
+
+  const watcher = chokidar.watch(['**/*.md', '**/*.markdown'], {
     cwd: rootPath,
     ignored: ['**/node_modules/**', '**/.git/**', '**/.*'],
     ignoreInitial: true
   })
+  const state: WatchState = {
+    watcher,
+    timer: null,
+    structureChanged: false,
+    subscribers: new Set([onChange]),
+    closed: false
+  }
 
-  watcher.on('add', onChange)
-  watcher.on('unlink', onChange)
-  watcher.on('change', onChange)
+  const scheduleChange = (structureChanged: boolean): void => {
+    if (state.closed || watchers.get(rootPath) !== state) return
 
-  watchers.set(rootPath, watcher)
+    state.structureChanged = state.structureChanged || structureChanged
+
+    if (state.timer) {
+      clearTimeout(state.timer)
+    }
+
+    state.timer = setTimeout(() => {
+      state.timer = null
+      if (state.closed || watchers.get(rootPath) !== state || !state.structureChanged) return
+
+      state.structureChanged = false
+      for (const subscriber of state.subscribers) {
+        subscriber()
+      }
+    }, WATCH_DEBOUNCE_MS)
+  }
+
+  watcher.on('add', () => scheduleChange(true))
+  watcher.on('unlink', () => scheduleChange(true))
+  // 内容变更不刷新文件树，只用于合并附近的结构变化事件。
+  watcher.on('change', () => scheduleChange(false))
+
+  watchers.set(rootPath, state)
 }
 
-export function unwatchWorkspace(rootPath: string): void {
-  const watcher = watchers.get(rootPath)
-  if (watcher) {
-    watcher.close()
+export function unwatchWorkspace(rootPath: string, onChange?: () => void): void {
+  const state = watchers.get(rootPath)
+  if (state) {
+    if (onChange) {
+      state.subscribers.delete(onChange)
+      if (state.subscribers.size > 0) return
+    }
+
+    if (state.timer) {
+      clearTimeout(state.timer)
+    }
+    state.closed = true
+    state.watcher.close()
     watchers.delete(rootPath)
   }
 }
