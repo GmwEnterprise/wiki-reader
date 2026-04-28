@@ -28,9 +28,9 @@ if (!gotTheLock) {
     }
   })
 
-  app.whenReady().then(() => {
-    electronApp.setAppUserModelId('com.wiki-reader.app')
+  electronApp.setAppUserModelId('com.wiki-reader.app')
 
+  app.whenReady().then(() => {
     app.on('browser-window-created', (_, window) => {
       window.on('maximize', () => {
         window.webContents.send('window:maximized-changed', true)

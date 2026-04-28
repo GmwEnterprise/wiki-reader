@@ -3,6 +3,7 @@ import { join, basename } from 'path'
 import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getWindowShortcutAction } from './window-shortcuts'
+import { getInitialOpenPathArg } from '../preload/initial-open-path'
 
 export function createMainWindow(initialPath?: string): BrowserWindow {
   const primaryDisplay = screen.getPrimaryDisplay()
@@ -26,7 +27,8 @@ export function createMainWindow(initialPath?: string): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      additionalArguments: initialPath ? getInitialOpenPathArg(initialPath) : []
     }
   })
 

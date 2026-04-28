@@ -9,6 +9,7 @@ import MarkdownView from './components/MarkdownView'
 import SourceEditor, { type SourceEditorHandle } from './components/SourceEditor'
 import TerminalPanel from './components/TerminalPanel'
 import WelcomePage from './components/WelcomePage'
+import { getWorkspaceShellState } from './appShell'
 
 function App(): React.JSX.Element {
   const { workspace, files, openFolder, openRecentFolder, closeWorkspace } = useWorkspace()
@@ -24,8 +25,10 @@ function App(): React.JSX.Element {
   })
   const [isMaximized, setIsMaximized] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [initialOpenPath, setInitialOpenPath] = useState(() => window.api.getInitialOpenPath())
   const [error, setError] = useState<string | null>(null)
   const isResizing = useRef(false)
+  const initialOpenStartedRef = useRef(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const scrollPositionRef = useRef<number>(0)
@@ -101,6 +104,15 @@ function App(): React.JSX.Element {
     })
     return unsub
   }, [handleOpenRecent])
+
+  useEffect(() => {
+    if (!initialOpenPath || initialOpenStartedRef.current) return
+
+    initialOpenStartedRef.current = true
+    handleOpenRecent(initialOpenPath).finally(() => {
+      setInitialOpenPath(null)
+    })
+  }, [handleOpenRecent, initialOpenPath])
 
   useEffect(() => {
     const unsub = window.api.onMenuToggleMode(() => {
@@ -230,6 +242,8 @@ function App(): React.JSX.Element {
     [sidebarWidth]
   )
 
+  const workspaceShellState = getWorkspaceShellState(!!workspace, initialOpenPath)
+
   return (
     <div className="app">
       <header className="toolbar">
@@ -298,7 +312,7 @@ function App(): React.JSX.Element {
           </button>
         </div>
       </header>
-      {workspace ? (
+      {workspaceShellState === 'workspace' ? (
         <>
           <div className="body">
             <aside className="sidebar" style={{ width: sidebarWidth }}>
@@ -371,6 +385,14 @@ function App(): React.JSX.Element {
             </div>
           </footer>
         </>
+      ) : workspaceShellState === 'opening' ? (
+        <div className="body">
+          <main className="content">
+            <div className="content-body">
+              <div className="content-loading">打开文件夹中...</div>
+            </div>
+          </main>
+        </div>
       ) : (
         <WelcomePage onOpenFolder={handleOpenFolder} onOpenRecent={handleOpenRecent} />
       )}

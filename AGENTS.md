@@ -82,7 +82,7 @@ wiki-reader/
 │   └── icon.png             # 应用图标
 ├── docs/                    # 设计文档和开发计划
 ├── electron.vite.config.ts
-├── electron-builder.json5
+├── electron-builder.yml
 ├── tsconfig.json
 ├── tsconfig.node.json
 └── tsconfig.web.json

@@ -39,6 +39,7 @@ declare global {
       newWindow: () => void
       closeWorkspace: () => void
       quitApp: () => void
+      getInitialOpenPath: () => string | null
       openPath: (folderPath: string) => Promise<{ rootPath: string; name: string } | null>
       getRecentFolders: () => Promise<Array<{ path: string; name: string; lastAccessed: number }>>
       removeRecentFolder: (folderPath: string) => Promise<void>

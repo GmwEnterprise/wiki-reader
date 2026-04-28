@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { getInitialOpenPathFromArgv } from './initial-open-path'
 
 const api = {
   windowControls: {
@@ -50,6 +51,7 @@ const api = {
   newWindow: () => ipcRenderer.send('window:new-window'),
   closeWorkspace: () => ipcRenderer.send('window:close-workspace'),
   quitApp: () => ipcRenderer.send('window:quit'),
+  getInitialOpenPath: () => getInitialOpenPathFromArgv(process.argv),
   openPath: (folderPath: string) => ipcRenderer.invoke('workspace:openPath', folderPath),
   getRecentFolders: () => ipcRenderer.invoke('recent:getList'),
   removeRecentFolder: (folderPath: string) => ipcRenderer.invoke('recent:remove', folderPath),
