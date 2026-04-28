@@ -4,17 +4,20 @@ import { is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { getWindowShortcutAction } from './window-shortcuts'
 import { getInitialOpenPathArg } from '../preload/initial-open-path'
+import { loadWindowBounds, saveWindowBounds } from './window-bounds'
 
 export function createMainWindow(initialPath?: string): BrowserWindow {
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
 
-  const winWidth = Math.min(Math.round(screenWidth * 0.75), 1600)
-  const winHeight = Math.min(Math.round(screenHeight * 0.8), 1000)
+  const defaultWidth = Math.min(Math.round(screenWidth * 0.75), 1600)
+  const defaultHeight = Math.min(Math.round(screenHeight * 0.8), 1000)
+
+  const savedBounds = loadWindowBounds()
 
   const win = new BrowserWindow({
-    width: winWidth,
-    height: winHeight,
+    width: savedBounds?.width ?? defaultWidth,
+    height: savedBounds?.height ?? defaultHeight,
     minWidth: 800,
     minHeight: 600,
     title: initialPath ? `${basename(initialPath)} - Wiki Reader` : 'Wiki Reader',
@@ -31,6 +34,44 @@ export function createMainWindow(initialPath?: string): BrowserWindow {
       additionalArguments: initialPath ? getInitialOpenPathArg(initialPath) : []
     }
   })
+
+  if (savedBounds?.x != null && savedBounds?.y != null) {
+    const displays = screen.getAllDisplays()
+    const isOnScreen = displays.some((d) => {
+      const { x, y, width, height } = d.workArea
+      return (
+        savedBounds.x! >= x &&
+        savedBounds.x! < x + width &&
+        savedBounds.y! >= y &&
+        savedBounds.y! < y + height
+      )
+    })
+    if (isOnScreen) {
+      win.setPosition(savedBounds.x!, savedBounds.y!)
+    }
+  }
+
+  if (savedBounds?.isMaximized) {
+    win.maximize()
+  }
+
+  const persistBounds = (): void => {
+    if (win.isDestroyed()) return
+    const [width, height] = win.getSize()
+    const [x, y] = win.getPosition()
+    saveWindowBounds({
+      x,
+      y,
+      width,
+      height,
+      isMaximized: win.isMaximized()
+    })
+  }
+
+  win.on('resize', persistBounds)
+  win.on('move', persistBounds)
+  win.on('maximize', persistBounds)
+  win.on('unmaximize', persistBounds)
 
   win.on('ready-to-show', () => {
     win.show()
