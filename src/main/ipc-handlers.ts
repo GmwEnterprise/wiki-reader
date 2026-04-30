@@ -11,6 +11,7 @@ import {
   unwatchWorkspace
 } from './workspace'
 import { createTerminal, terminalWrite, terminalResize, terminalKill } from './terminal'
+import { setWindowWorkspace } from './window'
 import {
   addRecentFolder,
   getRecentFolders,
@@ -59,6 +60,7 @@ export function registerIpcHandlers(): void {
       const win = BrowserWindow.fromWebContents(event.sender)
       if (win) {
         win.setTitle(result.name + ' - Wiki Reader')
+        setWindowWorkspace(win, result.rootPath)
       }
       addRecentFolder(result.rootPath, result.name)
     }
@@ -71,6 +73,7 @@ export function registerIpcHandlers(): void {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) {
       win.setTitle(name + ' - Wiki Reader')
+      setWindowWorkspace(win, folderPath)
     }
     addRecentFolder(folderPath, name)
     return { rootPath: folderPath, name }

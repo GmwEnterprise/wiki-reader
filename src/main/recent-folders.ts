@@ -32,6 +32,8 @@ function writeToDisk(folders: RecentFolder[]): void {
 }
 
 export function addRecentFolder(folderPath: string, folderName: string): void {
+  if (!isValidRecentFolderPath(folderPath)) return
+
   let folders = readFromDisk()
   folders = folders.filter((f) => f.path !== folderPath)
   folders.unshift({
@@ -43,12 +45,11 @@ export function addRecentFolder(folderPath: string, folderName: string): void {
     folders = folders.slice(0, MAX_RECENT)
   }
   writeToDisk(folders)
-  app.addRecentDocument(folderPath)
   refreshJumpList()
 }
 
 export function getRecentFolders(): RecentFolder[] {
-  return readFromDisk()
+  return readFromDisk().filter((f) => isValidRecentFolderPath(f.path))
 }
 
 export function removeRecentFolder(folderPath: string): void {
@@ -67,6 +68,8 @@ export function clearRecentFolders(): void {
 export function refreshJumpList(): void {
   if (process.platform !== 'win32') return
 
+  app.clearRecentDocuments()
+
   const folders = getRecentFolders().slice(0, 10)
 
   app.setJumpList([
@@ -81,4 +84,8 @@ export function refreshJumpList(): void {
       }))
     }
   ])
+}
+
+function isValidRecentFolderPath(folderPath: string): boolean {
+  return typeof folderPath === 'string' && folderPath.length > 0 && !folderPath.startsWith('--')
 }

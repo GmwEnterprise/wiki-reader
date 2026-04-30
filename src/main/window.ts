@@ -6,6 +6,59 @@ import { getWindowShortcutAction } from './window-shortcuts'
 import { getInitialOpenPathArg } from '../preload/initial-open-path'
 import { loadWindowBounds, saveWindowBounds } from './window-bounds'
 
+const workspacePathMap = new Map<number, string>()
+
+export function setWindowWorkspace(win: BrowserWindow, workspacePath: string): void {
+  const oldPath = workspacePathMap.get(win.id)
+  if (oldPath && oldPath !== workspacePath && !win.isDestroyed()) {
+    const [width, height] = win.getSize()
+    const [x, y] = win.getPosition()
+    saveWindowBounds(oldPath, { x, y, width, height, isMaximized: win.isMaximized() })
+  }
+
+  workspacePathMap.set(win.id, workspacePath)
+
+  if (oldPath === workspacePath) return
+
+  const savedBounds = loadWindowBounds(workspacePath)
+  if (!savedBounds) return
+
+  if (savedBounds.x != null && savedBounds.y != null) {
+    const displays = screen.getAllDisplays()
+    const isOnScreen = displays.some((d) => {
+      const { x, y, width, height } = d.workArea
+      return (
+        savedBounds.x! >= x &&
+        savedBounds.x! < x + width &&
+        savedBounds.y! >= y &&
+        savedBounds.y! < y + height
+      )
+    })
+    if (isOnScreen) {
+      win.setBounds({
+        x: savedBounds.x,
+        y: savedBounds.y,
+        width: savedBounds.width,
+        height: savedBounds.height
+      })
+    }
+  }
+
+  if (savedBounds.isMaximized) {
+    win.maximize()
+  }
+}
+
+export function clearWindowWorkspace(win: BrowserWindow): void {
+  const oldPath = workspacePathMap.get(win.id)
+  if (oldPath && !win.isDestroyed()) {
+    const [width, height] = win.getSize()
+    const [x, y] = win.getPosition()
+    saveWindowBounds(oldPath, { x, y, width, height, isMaximized: win.isMaximized() })
+  }
+  workspacePathMap.delete(win.id)
+}
+
 export function createMainWindow(initialPath?: string): BrowserWindow {
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
@@ -13,11 +66,9 @@ export function createMainWindow(initialPath?: string): BrowserWindow {
   const defaultWidth = Math.min(Math.round(screenWidth * 0.75), 1600)
   const defaultHeight = Math.min(Math.round(screenHeight * 0.8), 1000)
 
-  const savedBounds = loadWindowBounds()
-
   const win = new BrowserWindow({
-    width: savedBounds?.width ?? defaultWidth,
-    height: savedBounds?.height ?? defaultHeight,
+    width: defaultWidth,
+    height: defaultHeight,
     minWidth: 800,
     minHeight: 600,
     title: initialPath ? `${basename(initialPath)} - Wiki Reader` : 'Wiki Reader',
@@ -35,31 +86,17 @@ export function createMainWindow(initialPath?: string): BrowserWindow {
     }
   })
 
-  if (savedBounds?.x != null && savedBounds?.y != null) {
-    const displays = screen.getAllDisplays()
-    const isOnScreen = displays.some((d) => {
-      const { x, y, width, height } = d.workArea
-      return (
-        savedBounds.x! >= x &&
-        savedBounds.x! < x + width &&
-        savedBounds.y! >= y &&
-        savedBounds.y! < y + height
-      )
-    })
-    if (isOnScreen) {
-      win.setPosition(savedBounds.x!, savedBounds.y!)
-    }
-  }
-
-  if (savedBounds?.isMaximized) {
-    win.maximize()
+  if (initialPath) {
+    setWindowWorkspace(win, initialPath)
   }
 
   const persistBounds = (): void => {
     if (win.isDestroyed()) return
+    const workspacePath = workspacePathMap.get(win.id)
+    if (!workspacePath) return
     const [width, height] = win.getSize()
     const [x, y] = win.getPosition()
-    saveWindowBounds({
+    saveWindowBounds(workspacePath, {
       x,
       y,
       width,

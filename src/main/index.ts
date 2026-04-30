@@ -1,10 +1,11 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { basename } from 'path'
 import { electronApp } from '@electron-toolkit/utils'
-import { createMainWindow } from './window'
+import { createMainWindow, clearWindowWorkspace } from './window'
 import { registerIpcHandlers } from './ipc-handlers'
 import { killAllTerminals, killWindowTerminals } from './terminal'
 import { refreshJumpList } from './recent-folders'
+import { parseOpenArg } from './open-args'
 
 const gotTheLock = app.requestSingleInstanceLock()
 
@@ -13,18 +14,9 @@ if (!gotTheLock) {
 } else {
   app.on('second-instance', (_event, argv) => {
     const openPath = parseOpenArg(argv)
-    const win = getLastWindow()
-    if (win) {
-      if (win.isMinimized()) win.restore()
-      win.focus()
-      if (openPath) {
-        win.webContents.send('workspace:open-path', openPath)
-      }
-    } else {
-      const newWin = createMainWindow(openPath ?? undefined)
-      if (openPath) {
-        newWin.setTitle(basename(openPath) + ' - Wiki Reader')
-      }
+    const newWin = createMainWindow(openPath ?? undefined)
+    if (openPath) {
+      newWin.setTitle(basename(openPath) + ' - Wiki Reader')
     }
   })
 
@@ -46,24 +38,6 @@ if (!gotTheLock) {
     const openPath = parseOpenArg(process.argv)
     createMainWindow(openPath ?? undefined)
   })
-}
-
-function parseOpenArg(argv: string[]): string | null {
-  for (let i = 0; i < argv.length - 1; i++) {
-    if (argv[i] === '--open') {
-      let path = argv[i + 1]
-      if (path.startsWith('"') && path.endsWith('"')) {
-        path = path.slice(1, -1)
-      }
-      return path
-    }
-  }
-  return null
-}
-
-function getLastWindow(): BrowserWindow | null {
-  const windows = BrowserWindow.getAllWindows()
-  return windows.length > 0 ? windows[windows.length - 1] : null
 }
 
 ipcMain.on('window:minimize', (event) => {
@@ -98,6 +72,7 @@ ipcMain.on('window:close-workspace', (event) => {
   if (win) {
     killWindowTerminals(win.id)
     win.setTitle('Wiki Reader')
+    clearWindowWorkspace(win)
   }
 })
 
