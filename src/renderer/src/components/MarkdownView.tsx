@@ -61,9 +61,22 @@ function isLocalLink(href: string): boolean {
   )
 }
 
+function revokeBlobUrls(urls: Record<string, string>): void {
+  for (const url of Object.values(urls)) {
+    if (url.startsWith('blob:')) {
+      URL.revokeObjectURL(url)
+    }
+  }
+}
+
+function toBlobUrl(buffer: ArrayBuffer, mimeType: string): string {
+  return URL.createObjectURL(new Blob([buffer], { type: mimeType }))
+}
+
 export default function MarkdownView({ source, currentFilePath, workspaceRootPath, files, onOpenFile }: MarkdownViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const loadingRef = useRef<Set<string>>(new Set())
+  const prevImageUrlsRef = useRef<Record<string, string>>({})
   const imageContextKey = `${workspaceRootPath ?? ''}\u0000${currentFilePath ?? ''}`
   const [loadedImages, setLoadedImages] = useState<{ key: string; urls: Record<string, string> }>({
     key: imageContextKey,
@@ -79,6 +92,13 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
   }, [source])
   const renderedHtml = renderResult.html
   const activeImageUrls = loadedImages.key === imageContextKey ? loadedImages.urls : {}
+
+  if (loadedImages.key !== imageContextKey) {
+    revokeBlobUrls(prevImageUrlsRef.current)
+    prevImageUrlsRef.current = {}
+  }
+  prevImageUrlsRef.current = activeImageUrls
+
   const html = useMemo(() => replaceLocalImageSrc(renderedHtml, activeImageUrls), [renderedHtml, activeImageUrls])
 
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -137,6 +157,10 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
     const currentSrcs = new Set(collectLocalImageSrcs(renderedHtml))
     const staleKeys = Object.keys(activeImageUrls).filter((k) => !currentSrcs.has(k))
     if (staleKeys.length > 0) {
+      for (const k of staleKeys) {
+        const url = activeImageUrls[k]
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+      }
       setLoadedImages((prev) => {
         if (prev.key !== imageContextKey) return prev
         const next = { ...prev.urls }
@@ -154,53 +178,48 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
       loadingRef.current.add(localSrc)
     }
 
-    for (const localSrc of localSrcs) {
-      const setImageSrc = (src: string): void => {
-        if (cancelled) return
-        loadingRef.current.delete(localSrc)
-        setLoadedImages((current) => ({
-          key: imageContextKey,
-          urls: {
-            ...(current.key === imageContextKey ? current.urls : {}),
-            [localSrc]: src
-          }
-        }))
-      }
-
+    const loadSingleImage = async (localSrc: string): Promise<[string, string]> => {
       if (ABSOLUTE_PATH_RE.test(localSrc) || ABSOLUTE_PATH_RE.test(decodeURIComponent(localSrc))) {
         const normalized = normalizePath(decodeURIComponent(localSrc))
-        window.api.readAbsoluteAsset(normalized).then((result) => {
-          if (result.success && result.dataUrl) {
-            setImageSrc(result.dataUrl)
-          } else {
-            setImageSrc(PLACEHOLDER)
-            console.warn('[MarkdownView] 绝对路径图片加载失败:', localSrc, result.error)
-          }
-        }).catch(() => {
-          setImageSrc(PLACEHOLDER)
-        })
-        continue
+        const result = await window.api.readAbsoluteAsset(normalized)
+        if (!cancelled && result.success && result.buffer && result.mimeType) {
+          return [localSrc, toBlobUrl(result.buffer, result.mimeType)]
+        }
+        return [localSrc, PLACEHOLDER]
       }
 
       let resolved: string
       try {
         resolved = resolveRelativePath(currentFilePath, localSrc)
       } catch {
-        setImageSrc(PLACEHOLDER)
-        continue
+        return [localSrc, PLACEHOLDER]
       }
 
-      window.api.readAsset(workspaceRootPath, resolved).then((result) => {
-        if (result.success && result.dataUrl) {
-          setImageSrc(result.dataUrl)
-        } else {
-          setImageSrc(PLACEHOLDER)
-          console.warn('[MarkdownView] 图片加载失败:', localSrc, '→', resolved, result.error)
-        }
-      }).catch(() => {
-        setImageSrc(PLACEHOLDER)
-      })
+      const result = await window.api.readAsset(workspaceRootPath, resolved)
+      if (!cancelled && result.success && result.buffer && result.mimeType) {
+        return [localSrc, toBlobUrl(result.buffer, result.mimeType)]
+      }
+      return [localSrc, PLACEHOLDER]
     }
+
+    Promise.allSettled(localSrcs.map(loadSingleImage)).then((results) => {
+      if (cancelled) return
+      const batch: Record<string, string> = {}
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          const [src, url] = r.value
+          batch[src] = url
+          loadingRef.current.delete(src)
+        }
+      }
+      setLoadedImages((current) => ({
+        key: imageContextKey,
+        urls: {
+          ...(current.key === imageContextKey ? current.urls : {}),
+          ...batch
+        }
+      }))
+    })
 
     return () => {
       cancelled = true
@@ -209,6 +228,12 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
       }
     }
   }, [activeImageUrls, currentFilePath, imageContextKey, renderedHtml, workspaceRootPath])
+
+  useEffect(() => {
+    return () => {
+      revokeBlobUrls(prevImageUrlsRef.current)
+    }
+  }, [])
 
   if (renderResult.failed) {
     return (

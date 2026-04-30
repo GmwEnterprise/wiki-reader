@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFileTree,
   collectDirectoryPaths,
-  mergeCollapsedWithNewDirectories
+  mergeCollapsedWithNewDirectories,
+  flattenVisibleNodes
 } from '../../src/renderer/src/components/FileList'
 import type { WikiFile } from '../../src/renderer/src/types'
 
@@ -27,5 +28,31 @@ describe('FileList tree helpers', () => {
       'guides',
       'guides/deploy'
     ])
+  })
+})
+
+describe('flattenVisibleNodes', () => {
+  const tree = buildFileTree(files)
+
+  it('折叠状态只返回根节点', () => {
+    const collapsed = new Set(['guides', 'guides/deploy'])
+    const flat = flattenVisibleNodes(tree, collapsed)
+    expect(flat.map(n => n.node.name)).toEqual(['guides', 'readme.md'])
+  })
+
+  it('部分展开返回可见子节点', () => {
+    const collapsed = new Set(['guides/deploy'])
+    const flat = flattenVisibleNodes(tree, collapsed)
+    expect(flat.map(n => n.node.name)).toEqual(['guides', 'deploy', 'setup.md', 'readme.md'])
+  })
+
+  it('全部展开返回所有节点', () => {
+    const flat = flattenVisibleNodes(tree, new Set())
+    expect(flat.map(n => n.node.name)).toEqual(['guides', 'deploy', 'checklist.md', 'setup.md', 'readme.md'])
+  })
+
+  it('depth 值正确', () => {
+    const flat = flattenVisibleNodes(tree, new Set())
+    expect(flat.map(n => n.depth)).toEqual([0, 1, 2, 1, 0])
   })
 })

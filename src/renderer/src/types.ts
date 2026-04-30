@@ -14,7 +14,6 @@ export type WikiFile = {
 export type DocumentState = {
   file: WikiFile | null
   content: string
-  originalContent: string
   mode: 'preview' | 'source'
   dirty: boolean
   loading: boolean

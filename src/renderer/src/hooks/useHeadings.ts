@@ -1,8 +1,11 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { extractHeadings } from '../utils/headings'
 
-export function useHeadings(content: string) {
-  const headings = useMemo(() => extractHeadings(content), [content])
+export function useHeadings(content: string, mode: 'preview' | 'source') {
+  const headings = useMemo(
+    () => (mode === 'source' ? [] : extractHeadings(content)),
+    [content, mode]
+  )
   const [activeId, setActiveId] = useState<string | null>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
 

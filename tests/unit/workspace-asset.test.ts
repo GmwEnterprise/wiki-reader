@@ -5,10 +5,12 @@ import { readWorkspaceAsset } from '../../src/main/workspace'
 const workspaceRoot = join(process.cwd(), 'docs/wiki-example')
 
 describe('readWorkspaceAsset', () => {
-  it('把 workspace 内的图片读取为 data URL', async () => {
-    const dataUrl = await readWorkspaceAsset(workspaceRoot, 'img/thumbnail.jpg')
+  it('返回 ArrayBuffer 和 mimeType', async () => {
+    const result = await readWorkspaceAsset(workspaceRoot, 'img/thumbnail.jpg')
 
-    expect(dataUrl.startsWith('data:image/jpeg;base64,')).toBe(true)
+    expect(result.buffer).toBeInstanceOf(ArrayBuffer)
+    expect(result.buffer.byteLength).toBeGreaterThan(0)
+    expect(result.mimeType).toBe('image/jpeg')
   })
 
   it('拒绝读取 workspace 外的文件', async () => {

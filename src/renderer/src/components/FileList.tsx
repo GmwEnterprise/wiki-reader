@@ -8,31 +8,53 @@ export type FileTreeNode = {
   children: FileTreeNode[]
 }
 
+const childrenMapCache = new WeakMap<FileTreeNode, Map<string, FileTreeNode>>()
+
+function getOrCreateChildrenMap(node: FileTreeNode): Map<string, FileTreeNode> {
+  let map = childrenMapCache.get(node)
+  if (map) return map
+  map = new Map()
+  for (const child of node.children) {
+    map.set(child.name, child)
+  }
+  childrenMapCache.set(node, map)
+  return map
+}
+
 export function buildFileTree(files: WikiFile[]): FileTreeNode[] {
   const root: FileTreeNode[] = []
+  const rootMap = new Map<string, FileTreeNode>()
 
   for (const file of files) {
     const parts = file.relativePath.split(/[/\\]/)
-    let current = root
+    let currentList = root
+    let currentMap = rootMap
     let prefix = ''
 
     for (let i = 0; i < parts.length - 1; i++) {
       const dirName = parts[i]
       prefix = prefix ? prefix + '/' + dirName : dirName
-      let existing = current.find((n) => n.name === dirName)
+      let existing = currentMap.get(dirName)
       if (!existing) {
         existing = { name: dirName, relativePath: prefix, children: [] }
-        current.push(existing)
+        currentMap.set(dirName, existing)
+        currentList.push(existing)
+        const childMap = new Map<string, FileTreeNode>()
+        childrenMapCache.set(existing, childMap)
+        currentMap = childMap
+      } else {
+        currentMap = getOrCreateChildrenMap(existing)
       }
-      current = existing.children
+      currentList = existing.children
     }
 
-    current.push({
+    const leafNode: FileTreeNode = {
       name: file.name,
       relativePath: file.relativePath,
       file,
       children: []
-    })
+    }
+    currentList.push(leafNode)
   }
 
   sortTree(root)
@@ -62,6 +84,27 @@ export function collectDirectoryPaths(nodes: FileTreeNode[]): string[] {
   return paths
 }
 
+export function flattenVisibleNodes(
+  nodes: FileTreeNode[],
+  collapsed: Set<string>
+): { node: FileTreeNode; depth: number }[] {
+  const result: { node: FileTreeNode; depth: number }[] = []
+  const stack: { node: FileTreeNode; depth: number }[] = []
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    stack.push({ node: nodes[i], depth: 0 })
+  }
+  while (stack.length > 0) {
+    const { node, depth } = stack.pop()!
+    result.push({ node, depth })
+    if (node.children.length > 0 && !collapsed.has(node.relativePath)) {
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        stack.push({ node: node.children[i], depth: depth + 1 })
+      }
+    }
+  }
+  return result
+}
+
 export function mergeCollapsedWithNewDirectories(
   collapsed: Set<string>,
   previousTree: FileTreeNode[],
@@ -76,6 +119,9 @@ export function mergeCollapsedWithNewDirectories(
   return next
 }
 
+const ROW_HEIGHT = 28
+const BUFFER_ROWS = 5
+
 type FileListProps = {
   files: WikiFile[]
   selectedPath: string | null
@@ -88,6 +134,9 @@ export default function FileList({ files, selectedPath, onSelect }: FileListProp
     const allDirs = collectDirectoryPaths(tree)
     return new Set(allDirs)
   })
+  const [scrollTop, setScrollTop] = useState(0)
+  const [containerHeight, setContainerHeight] = useState(0)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const prevTreeRef = useRef(tree)
   useLayoutEffect(() => {
@@ -96,6 +145,17 @@ export default function FileList({ files, selectedPath, onSelect }: FileListProp
       prevTreeRef.current = tree
     }
   }, [tree])
+
+  useEffect(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    setContainerHeight(el.clientHeight)
+    const observer = new ResizeObserver(() => {
+      setContainerHeight(el.clientHeight)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     if (!selectedPath) return
@@ -138,6 +198,37 @@ export default function FileList({ files, selectedPath, onSelect }: FileListProp
     })
   }, [])
 
+  const visibleNodes = useMemo(
+    () => flattenVisibleNodes(tree, collapsed),
+    [tree, collapsed]
+  )
+
+  const totalHeight = visibleNodes.length * ROW_HEIGHT
+  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_ROWS)
+  const endIndex = Math.min(
+    visibleNodes.length,
+    Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + BUFFER_ROWS
+  )
+
+  const handleScroll = useCallback(() => {
+    if (scrollContainerRef.current) {
+      setScrollTop(scrollContainerRef.current.scrollTop)
+      setContainerHeight(scrollContainerRef.current.clientHeight)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!selectedPath) return
+    const idx = visibleNodes.findIndex((n) => n.node.relativePath === selectedPath)
+    if (idx === -1) return
+    const top = idx * ROW_HEIGHT
+    const currentScroll = scrollContainerRef.current?.scrollTop ?? 0
+    const height = scrollContainerRef.current?.clientHeight ?? 0
+    if (top < currentScroll || top + ROW_HEIGHT > currentScroll + height) {
+      scrollContainerRef.current?.scrollTo({ top: top - height / 3, behavior: 'smooth' })
+    }
+  }, [selectedPath, visibleNodes])
+
   return (
     <div className="file-list">
       <div className="file-list-actions">
@@ -153,77 +244,45 @@ export default function FileList({ files, selectedPath, onSelect }: FileListProp
           </svg>
         </button>
       </div>
-      {tree.map((node) => (
-        <FileTreeNodeComponent
-          key={node.relativePath}
-          node={node}
-          depth={0}
-          selectedPath={selectedPath}
-          onSelect={onSelect}
-          collapsed={collapsed}
-          toggleDir={toggleDir}
-        />
-      ))}
-    </div>
-  )
-}
-
-function FileTreeNodeComponent({
-  node,
-  depth,
-  selectedPath,
-  onSelect,
-  collapsed,
-  toggleDir
-}: {
-  node: FileTreeNode
-  depth: number
-  selectedPath: string | null
-  onSelect: (file: WikiFile) => void
-  collapsed: Set<string>
-  toggleDir: (dirPath: string) => void
-}) {
-  const isDir = node.children.length > 0
-  const isSelected = node.relativePath === selectedPath
-  const isCollapsed = collapsed.has(node.relativePath)
-  const nodeRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (isSelected && nodeRef.current) {
-      nodeRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-    }
-  }, [isSelected])
-
-  return (
-    <>
       <div
-        ref={nodeRef}
-        className={`file-node ${isSelected ? 'file-node--selected' : ''}`}
-        style={{ '--node-depth': depth } as React.CSSProperties}
-        onClick={() => {
-          if (isDir) {
-            toggleDir(node.relativePath)
-          } else if (node.file) {
-            onSelect(node.file)
-          }
-        }}
+        ref={scrollContainerRef}
+        className="file-list-scroll"
+        onScroll={handleScroll}
       >
-        <span className={`file-node-toggle${isDir ? (isCollapsed ? '' : ' file-node-toggle--open') : ' file-node-toggle--empty'}`} />
-        <span className="file-node-icon">{isDir ? '📁' : '📄'}</span>
-        <span className="file-node-name">{node.name}</span>
+        <div style={{ height: totalHeight, position: 'relative' }}>
+          {visibleNodes.slice(startIndex, endIndex).map((item, i) => {
+            const { node, depth } = item
+            const isDir = node.children.length > 0
+            const isSelected = node.relativePath === selectedPath
+            const isCollapsed = collapsed.has(node.relativePath)
+            return (
+              <div
+                key={node.relativePath}
+                className={`file-node ${isSelected ? 'file-node--selected' : ''}`}
+                style={{
+                  position: 'absolute',
+                  top: (startIndex + i) * ROW_HEIGHT,
+                  left: 0,
+                  right: 0,
+                  height: ROW_HEIGHT,
+                  '--node-depth': depth
+                } as React.CSSProperties}
+                onClick={() => {
+                  if (isDir) {
+                    toggleDir(node.relativePath)
+                  } else if (node.file) {
+                    onSelect(node.file)
+                  }
+                }}
+              >
+                <span className={`file-node-toggle${isDir ? (isCollapsed ? '' : ' file-node-toggle--open') : ' file-node-toggle--empty'}`} />
+                <span className="file-node-icon">{isDir ? '📁' : '📄'}</span>
+                <span className="file-node-name">{node.name}</span>
+              </div>
+            )
+          })}
+        </div>
       </div>
-      {isDir && !isCollapsed &&
-        node.children.map((child) => (
-          <FileTreeNodeComponent
-            key={child.relativePath}
-            node={child}
-            depth={depth + 1}
-            selectedPath={selectedPath}
-            onSelect={onSelect}
-            collapsed={collapsed}
-            toggleDir={toggleDir}
-          />
-        ))}
-    </>
+    </div>
   )
 }

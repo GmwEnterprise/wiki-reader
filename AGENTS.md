@@ -161,8 +161,6 @@ it will remain unchanged to be resolved at runtime
 pnpm dev           # 启动开发服务器
 pnpm build         # 构建应用（类型检查 + 编译）
 pnpm preview       # 预览构建结果
-pnpm test          # 运行测试
-pnpm test:watch    # 监听模式运行测试
 pnpm build:win     # 打包为 Windows 安装包（NSIS .exe），输出到 dist/
 pnpm build:unpack  # 打包为解压即用目录（不生成安装包），用于快速验证
 ```

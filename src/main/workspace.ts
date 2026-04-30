@@ -99,7 +99,10 @@ export async function saveMarkdownFile(
   await writeFile(fullPath, content, 'utf-8')
 }
 
-export async function readWorkspaceAsset(rootPath: string, relativePath: string): Promise<string> {
+export async function readWorkspaceAsset(
+  rootPath: string,
+  relativePath: string
+): Promise<{ buffer: ArrayBuffer; mimeType: string }> {
   const fullPath = join(rootPath, relativePath)
   const resolved = await validatePath(rootPath, fullPath)
   if (!resolved) throw new Error(`路径不合法: ${relativePath}`)
@@ -107,18 +110,24 @@ export async function readWorkspaceAsset(rootPath: string, relativePath: string)
   const mimeType = IMAGE_MIME_TYPES.get(extname(relativePath).toLowerCase())
   if (!mimeType) throw new Error(`不支持的图片类型: ${relativePath}`)
 
-  const buffer = await readFile(fullPath)
-  return `data:${mimeType};base64,${buffer.toString('base64')}`
+  const buf = await readFile(fullPath)
+  const buffer = new ArrayBuffer(buf.byteLength)
+  new Uint8Array(buffer).set(buf)
+  return { buffer, mimeType }
 }
 
-export async function readAbsoluteImageFile(absolutePath: string): Promise<string> {
+export async function readAbsoluteImageFile(
+  absolutePath: string
+): Promise<{ buffer: ArrayBuffer; mimeType: string }> {
   const normalizedPath = normalize(absolutePath)
   const ext = extname(normalizedPath).toLowerCase()
   const mimeType = IMAGE_MIME_TYPES.get(ext)
   if (!mimeType) throw new Error(`不支持的图片类型: ${ext}`)
 
-  const buffer = await readFile(normalizedPath)
-  return `data:${mimeType};base64,${buffer.toString('base64')}`
+  const buf = await readFile(normalizedPath)
+  const buffer = new ArrayBuffer(buf.byteLength)
+  new Uint8Array(buffer).set(buf)
+  return { buffer, mimeType }
 }
 
 export async function validatePath(rootPath: string, targetPath: string): Promise<boolean> {

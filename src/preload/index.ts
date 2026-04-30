@@ -22,9 +22,19 @@ const api = {
   saveFile: (rootPath: string, relativePath: string, content: string) =>
     ipcRenderer.invoke('workspace:saveFile', rootPath, relativePath, content),
   readAsset: (rootPath: string, relativePath: string) =>
-    ipcRenderer.invoke('workspace:readAsset', rootPath, relativePath),
+    ipcRenderer.invoke('workspace:readAsset', rootPath, relativePath) as Promise<{
+      success: boolean
+      buffer?: ArrayBuffer
+      mimeType?: string
+      error?: string
+    }>,
   readAbsoluteAsset: (absolutePath: string) =>
-    ipcRenderer.invoke('workspace:readAbsoluteAsset', absolutePath),
+    ipcRenderer.invoke('workspace:readAbsoluteAsset', absolutePath) as Promise<{
+      success: boolean
+      buffer?: ArrayBuffer
+      mimeType?: string
+      error?: string
+    }>,
   watchWorkspace: (rootPath: string) => ipcRenderer.invoke('workspace:watch', rootPath),
   unwatchWorkspace: (rootPath: string) => ipcRenderer.invoke('workspace:unwatch', rootPath),
   onFilesChanged: (callback: () => void) => {

@@ -17,7 +17,7 @@ function App(): React.JSX.Element {
   const { doc, loadContent, markDirty, syncContent, flushSave, setMode, reset } = useDocument(
     workspace?.rootPath ?? null
   )
-  const { headings, activeId, setupObserver, jumpToHeading } = useHeadings(doc.content)
+  const { headings, activeId, setupObserver, jumpToHeading } = useHeadings(doc.content, doc.mode)
   const terminal = useTerminalTabs()
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('sidebar-width')

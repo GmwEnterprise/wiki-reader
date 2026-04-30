@@ -13,13 +13,13 @@ describe('MarkdownView 图片资源处理', () => {
     expect(replaceLocalImageSrc(html, {})).toContain('data-local-src="../img/thumbnail.jpg"')
   })
 
-  it('本地图片读取完成后用真实资源替换占位 src', () => {
+  it('本地图片读取完成后用 Blob URL 替换占位 src', () => {
     const html = '<p><img src="../img/thumbnail.jpg" alt="图片一"></p>'
     const replaced = replaceLocalImageSrc(html, {
-      '../img/thumbnail.jpg': 'data:image/jpeg;base64,abc'
+      '../img/thumbnail.jpg': 'blob:http://localhost/test-uuid'
     })
 
-    expect(replaced).toContain('src="data:image/jpeg;base64,abc"')
+    expect(replaced).toContain('src="blob:http://localhost/test-uuid"')
     expect(replaced).not.toContain('data-local-src')
   })
 })

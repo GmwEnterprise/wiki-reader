@@ -68,6 +68,32 @@
 
 .file-list {
   padding: var(--sidebar-list-padding-y) 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.file-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.file-list-scroll::-webkit-scrollbar {
+  width: 7px;
+}
+
+.file-list-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.file-list-scroll::-webkit-scrollbar-thumb {
+  background: var(--sidebar-scrollbar-thumb);
+  border-radius: 4px;
+}
+
+.file-list-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--sidebar-scrollbar-thumb-hover);
 }
 
 .file-list-actions {

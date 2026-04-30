@@ -5,7 +5,6 @@ export function useDocument(workspaceRootPath: string | null) {
   const [doc, setDoc] = useState<DocumentState>({
     file: null,
     content: '',
-    originalContent: '',
     mode: 'preview',
     dirty: false,
     loading: false
@@ -15,6 +14,7 @@ export function useDocument(workspaceRootPath: string | null) {
   docRef.current = doc
   const loadSeqRef = useRef(0)
   const editVersionRef = useRef(0)
+  const originalContentRef = useRef('')
 
   const saveCurrentDoc = useCallback(async (contentOverride?: string) => {
     const current = docRef.current
@@ -22,7 +22,7 @@ export function useDocument(workspaceRootPath: string | null) {
     const savedRelativePath = current.file.relativePath
     const savedEditVersion = editVersionRef.current
     const savedContent = contentOverride ?? current.content
-    if (!current.dirty && savedContent === current.originalContent) return
+    if (!current.dirty && savedContent === originalContentRef.current) return
     const result = await window.api.saveFile(
       workspaceRootPath,
       savedRelativePath,
@@ -33,10 +33,10 @@ export function useDocument(workspaceRootPath: string | null) {
         docRef.current.file?.relativePath === savedRelativePath &&
         editVersionRef.current === savedEditVersion
       ) {
+        originalContentRef.current = savedContent
         docRef.current = {
           ...docRef.current,
           content: savedContent,
-          originalContent: savedContent,
           dirty: false
         }
       }
@@ -48,7 +48,6 @@ export function useDocument(workspaceRootPath: string | null) {
         return {
           ...prev,
           content: savedContent,
-          originalContent: savedContent,
           dirty: false
         }
       })
@@ -72,10 +71,10 @@ export function useDocument(workspaceRootPath: string | null) {
       if (seq !== loadSeqRef.current) return
       editVersionRef.current += 1
       if (result.success && result.content !== undefined) {
+        originalContentRef.current = result.content
         const next = {
           file,
           content: result.content,
-          originalContent: result.content,
           mode: 'preview' as const,
           dirty: false,
           loading: false
@@ -86,11 +85,11 @@ export function useDocument(workspaceRootPath: string | null) {
         const next = {
           file,
           content: `读取失败: ${result.error}`,
-          originalContent: '',
           mode: 'preview' as const,
           dirty: false,
           loading: false
         }
+        originalContentRef.current = ''
         docRef.current = next
         setDoc(next)
       }
@@ -120,7 +119,7 @@ export function useDocument(workspaceRootPath: string | null) {
       const next = {
         ...prev,
         content,
-        dirty: content !== prev.originalContent
+        dirty: content !== originalContentRef.current
       }
       docRef.current = next
       return next
@@ -139,10 +138,10 @@ export function useDocument(workspaceRootPath: string | null) {
   const reset = useCallback(() => {
     cancelAutoSave()
     editVersionRef.current += 1
+    originalContentRef.current = ''
     const next = {
       file: null,
       content: '',
-      originalContent: '',
       mode: 'preview' as const,
       dirty: false,
       loading: false
