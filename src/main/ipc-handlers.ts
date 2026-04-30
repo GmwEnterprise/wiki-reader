@@ -169,11 +169,11 @@ export function registerIpcHandlers(): void {
     return createTerminal(win, cwd, id)
   })
 
-  ipcMain.handle('terminal:write', (event, id: number, data: string) => {
-    if (typeof id !== 'number' || typeof data !== 'string') return false
+  ipcMain.on('terminal:write', (event, id: number, data: string) => {
+    if (typeof id !== 'number' || typeof data !== 'string') return
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win) return false
-    return terminalWrite(win.id, id, data)
+    if (!win) return
+    terminalWrite(win.id, id, data)
   })
 
   ipcMain.on('terminal:resize', (event, id: number, cols: number, rows: number) => {

@@ -154,7 +154,8 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
 
     let cancelled = false
 
-    const currentSrcs = new Set(collectLocalImageSrcs(renderedHtml))
+    const allLocalSrcs = collectLocalImageSrcs(renderedHtml)
+    const currentSrcs = new Set(allLocalSrcs)
     const staleKeys = Object.keys(activeImageUrls).filter((k) => !currentSrcs.has(k))
     if (staleKeys.length > 0) {
       for (const k of staleKeys) {
@@ -169,7 +170,7 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
       })
     }
 
-    const localSrcs = collectLocalImageSrcs(renderedHtml).filter(
+    const localSrcs = allLocalSrcs.filter(
       (src) => !activeImageUrls[src] && !loadingRef.current.has(src)
     )
     if (localSrcs.length === 0) return

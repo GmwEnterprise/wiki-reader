@@ -76,7 +76,7 @@ const api = {
   terminalCreate: (id: number, cwd: string | null) =>
     ipcRenderer.invoke('terminal:create', id, cwd),
   terminalWrite: (id: number, data: string) =>
-    ipcRenderer.invoke('terminal:write', id, data) as Promise<boolean>,
+    ipcRenderer.send('terminal:write', id, data),
   terminalResize: (id: number, cols: number, rows: number) =>
     ipcRenderer.send('terminal:resize', id, cols, rows),
   terminalKill: (id: number) =>

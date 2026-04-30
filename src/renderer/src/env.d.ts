@@ -46,7 +46,7 @@ declare global {
       clearRecentFolders: () => Promise<void>
       onOpenPath: (callback: (path: string) => void) => () => void
       terminalCreate: (id: number, cwd: string | null) => Promise<{ error?: string; processName?: string } | null>
-      terminalWrite: (id: number, data: string) => Promise<boolean>
+      terminalWrite: (id: number, data: string) => void
       terminalResize: (id: number, cols: number, rows: number) => void
       terminalKill: (id: number) => Promise<void>
       onTerminalData: (id: number, callback: (data: string) => void) => () => void

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useWorkspace } from './hooks/useWorkspace'
 import { useDocument } from './hooks/useDocument'
 import { useHeadings } from './hooks/useHeadings'
@@ -130,15 +130,16 @@ function App(): React.JSX.Element {
     return unsub
   }, [doc.file, doc.mode, setMode, switchToPreview])
 
+  const filePathSet = useMemo(() => new Set(files.map((f) => f.relativePath)), [files])
+
   useEffect(() => {
     if (doc.file && workspace) {
-      const exists = files.some((f) => f.relativePath === doc.file?.relativePath)
-      if (!exists) {
+      if (!filePathSet.has(doc.file.relativePath)) {
         setError(`文件已被外部删除: ${doc.file.relativePath}`)
         reset()
       }
     }
-  }, [files, doc.file, workspace, reset])
+  }, [filePathSet, doc.file, workspace, reset])
 
   useEffect(() => {
     if (!isMenuOpen) return

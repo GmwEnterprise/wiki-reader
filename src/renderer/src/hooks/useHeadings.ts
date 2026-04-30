@@ -27,8 +27,12 @@ export function useHeadings(content: string, mode: 'preview' | 'source') {
         { rootMargin: '0px 0px -80% 0px' }
       )
 
+      const elementsById = new Map<string, Element>()
+      for (const el of container.querySelectorAll('h1,h2,h3,h4,h5,h6')) {
+        elementsById.set(el.id, el)
+      }
       for (const h of headings) {
-        const el = container.querySelector(`#${CSS.escape(h.id)}`)
+        const el = elementsById.get(h.id)
         if (el) observerRef.current.observe(el)
       }
     },
