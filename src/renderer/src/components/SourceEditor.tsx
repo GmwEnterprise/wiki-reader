@@ -18,6 +18,7 @@ type SourceEditorProps = {
 
 export type SourceEditorHandle = {
   getContent: () => string
+  scrollToLine: (lineNumber: number) => void
 }
 
 const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(function SourceEditor(
@@ -34,7 +35,18 @@ const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(function 
   onEscapeRef.current = onEscape
 
   useImperativeHandle(ref, () => ({
-    getContent: () => viewRef.current?.state.doc.toString() ?? content
+    getContent: () => viewRef.current?.state.doc.toString() ?? content,
+    scrollToLine: (lineNumber: number) => {
+      const view = viewRef.current
+      if (!view) return
+
+      const line = view.state.doc.line(Math.min(Math.max(1, lineNumber), view.state.doc.lines))
+      view.dispatch({
+        selection: { anchor: line.from },
+        effects: EditorView.scrollIntoView(line.from, { y: 'center' })
+      })
+      view.focus()
+    }
   }), [content])
 
   useEffect(() => {

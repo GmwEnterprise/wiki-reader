@@ -19,6 +19,14 @@ describe('extractHeadingsFromSource', () => {
     expect(headings).toEqual([{ id: '标题', level: 1, text: '标题' }])
   })
 
+  it('支持 CRLF 换行的标题', () => {
+    const headings = extractHeadingsFromSource('# 一级标题\r\n## 二级标题\r\n普通文本')
+    expect(headings).toEqual([
+      { id: '一级标题', level: 1, text: '一级标题' },
+      { id: '二级标题', level: 2, text: '二级标题' }
+    ])
+  })
+
   it('重复标题添加计数后缀', () => {
     const headings = extractHeadingsFromSource('# Intro\n## Intro\n### Intro')
     expect(headings.map(h => h.id)).toEqual(['intro', 'intro-1', 'intro-2'])
@@ -52,5 +60,20 @@ describe('extractHeadingsFromSource', () => {
   it('# 后必须跟空格', () => {
     const headings = extractHeadingsFromSource('#标题无空格')
     expect(headings).toEqual([])
+  })
+
+  it('忽略围栏代码块内的 # 行', () => {
+    const src = '# 真正的标题\n```\n# 代码中的注释\n## 也是注释\n```\n## 另一个标题'
+    expect(extractHeadingsFromSource(src)).toEqual([
+      { id: '真正的标题', level: 1, text: '真正的标题' },
+      { id: '另一个标题', level: 2, text: '另一个标题' }
+    ])
+  })
+
+  it('忽略波浪线围栏代码块内的 # 行', () => {
+    const src = '~~~\n# 被忽略\n~~~\n# 标题'
+    expect(extractHeadingsFromSource(src)).toEqual([
+      { id: '标题', level: 1, text: '标题' }
+    ])
   })
 })

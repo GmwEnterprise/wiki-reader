@@ -66,7 +66,15 @@ export function useDocument(workspaceRootPath: string | null) {
       if (!workspaceRootPath) return
       const seq = ++loadSeqRef.current
       cancelAutoSave()
-      setDoc((prev) => ({ ...prev, loading: true }))
+      const loadingDoc = {
+        file,
+        content: '',
+        mode: 'preview' as const,
+        dirty: false,
+        loading: true
+      }
+      docRef.current = loadingDoc
+      setDoc(loadingDoc)
       const result = await window.api.readFile(workspaceRootPath, file.relativePath)
       if (seq !== loadSeqRef.current) return
       editVersionRef.current += 1
@@ -137,6 +145,7 @@ export function useDocument(workspaceRootPath: string | null) {
 
   const reset = useCallback(() => {
     cancelAutoSave()
+    loadSeqRef.current += 1
     editVersionRef.current += 1
     originalContentRef.current = ''
     const next = {

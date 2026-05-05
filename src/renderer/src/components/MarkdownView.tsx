@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback, useEffect, useState } from 'react'
+import { useMemo, useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import { renderMarkdown } from '../utils/markdown'
 import type { WikiFile } from '../types'
 
@@ -8,6 +8,7 @@ type MarkdownViewProps = {
   workspaceRootPath: string | null
   files: WikiFile[]
   onOpenFile: (file: WikiFile) => void
+  onRendered?: (container: HTMLElement) => void
 }
 
 function normalizePath(p: string): string {
@@ -73,7 +74,14 @@ function toBlobUrl(buffer: ArrayBuffer, mimeType: string): string {
   return URL.createObjectURL(new Blob([buffer], { type: mimeType }))
 }
 
-export default function MarkdownView({ source, currentFilePath, workspaceRootPath, files, onOpenFile }: MarkdownViewProps) {
+export default function MarkdownView({
+  source,
+  currentFilePath,
+  workspaceRootPath,
+  files,
+  onOpenFile,
+  onRendered
+}: MarkdownViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const loadingRef = useRef<Set<string>>(new Set())
   const prevImageUrlsRef = useRef<Record<string, string>>({})
@@ -100,6 +108,12 @@ export default function MarkdownView({ source, currentFilePath, workspaceRootPat
   prevImageUrlsRef.current = activeImageUrls
 
   const html = useMemo(() => replaceLocalImageSrc(renderedHtml, activeImageUrls), [renderedHtml, activeImageUrls])
+
+  useLayoutEffect(() => {
+    if (containerRef.current) {
+      onRendered?.(containerRef.current)
+    }
+  }, [html, onRendered])
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement

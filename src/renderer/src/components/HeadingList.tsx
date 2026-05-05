@@ -5,6 +5,7 @@ type HeadingListProps = {
   headings: Heading[]
   activeId: string | null
   onJump: (id: string) => void
+  loading?: boolean
 }
 
 type HeadingTreeNode = {
@@ -46,7 +47,7 @@ function collectParentIds(nodes: HeadingTreeNode[]): string[] {
   return ids
 }
 
-export default function HeadingList({ headings, activeId, onJump }: HeadingListProps) {
+export default function HeadingList({ headings, activeId, onJump, loading = false }: HeadingListProps) {
   const tree = useMemo(() => buildHeadingTree(headings), [headings])
   const allParentIds = useMemo(() => new Set(collectParentIds(tree)), [tree])
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -70,6 +71,10 @@ export default function HeadingList({ headings, activeId, onJump }: HeadingListP
   const collapseAll = useCallback(() => {
     setCollapsed(new Set(allParentIds))
   }, [allParentIds])
+
+  if (loading) {
+    return <div className="heading-list-empty">标题加载中...</div>
+  }
 
   if (headings.length === 0) {
     return <div className="heading-list-empty">当前文档无标题</div>

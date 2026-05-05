@@ -1,11 +1,39 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { extractHeadings } from '../utils/headings'
 
-export function useHeadings(content: string, mode: 'preview' | 'source') {
-  const headings = useMemo(
-    () => (mode === 'source' ? [] : extractHeadings(content)),
-    [content, mode]
-  )
+function getHeadingLines(content: string): Map<string, number> {
+  const linesById = new Map<string, number>()
+  const idCounts = new Map<string, number>()
+  const lines = content.replace(/\r\n?/g, '\n').split('\n')
+  let inCodeBlock = false
+
+  lines.forEach((line, index) => {
+    if (/^(?:```|~~~)/.test(line)) {
+      inCodeBlock = !inCodeBlock
+      return
+    }
+    if (inCodeBlock) return
+
+    const match = /^(#{1,6})\s+(.+)$/.exec(line)
+    if (!match) return
+
+    const text = match[2].replace(/\s+#+\s*$/, '').trim()
+    const baseId = text
+      .toLowerCase()
+      .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
+      .replace(/^-|-$/g, '')
+    const count = idCounts.get(baseId) || 0
+    idCounts.set(baseId, count + 1)
+    const id = count === 0 ? baseId : `${baseId}-${count}`
+    linesById.set(id, index + 1)
+  })
+
+  return linesById
+}
+
+export function useHeadings(content: string, documentKey: string | null) {
+  const headings = useMemo(() => extractHeadings(content), [content])
+  const headingLines = useMemo(() => getHeadingLines(content), [content])
   const [activeId, setActiveId] = useState<string | null>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
 
@@ -40,6 +68,14 @@ export function useHeadings(content: string, mode: 'preview' | 'source') {
   )
 
   useEffect(() => {
+    setActiveId(null)
+    if (observerRef.current) {
+      observerRef.current.disconnect()
+      observerRef.current = null
+    }
+  }, [documentKey])
+
+  useEffect(() => {
     return () => {
       if (observerRef.current) {
         observerRef.current.disconnect()
@@ -55,5 +91,13 @@ export function useHeadings(content: string, mode: 'preview' | 'source') {
     }
   }, [])
 
-  return { headings, activeId, setupObserver, jumpToHeading }
+  const getHeadingLine = useCallback(
+    (id: string, source = content) => {
+      const linesById = source === content ? headingLines : getHeadingLines(source)
+      return linesById.get(id)
+    },
+    [content, headingLines]
+  )
+
+  return { headings, activeId, setupObserver, jumpToHeading, setActiveId, getHeadingLine }
 }

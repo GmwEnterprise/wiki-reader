@@ -17,7 +17,11 @@ function App(): React.JSX.Element {
   const { doc, loadContent, markDirty, syncContent, flushSave, setMode, reset } = useDocument(
     workspace?.rootPath ?? null
   )
-  const { headings, activeId, setupObserver, jumpToHeading } = useHeadings(doc.content, doc.mode)
+  const documentPath = doc.file?.relativePath ?? null
+  const { headings, activeId, setupObserver, jumpToHeading, setActiveId, getHeadingLine } = useHeadings(
+    doc.content,
+    documentPath
+  )
   const terminal = useTerminalTabs()
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('sidebar-width')
@@ -34,6 +38,7 @@ function App(): React.JSX.Element {
   const scrollPositionRef = useRef<number>(0)
   const contentBodyRef = useRef<HTMLDivElement>(null)
   const sourceEditorRef = useRef<SourceEditorHandle>(null)
+  const openFileSeqRef = useRef(0)
 
   const flushCurrentEditorSave = useCallback(async () => {
     if (doc.mode !== 'source') {
@@ -71,6 +76,7 @@ function App(): React.JSX.Element {
   }, [])
 
   const handleOpenFolder = useCallback(async () => {
+    openFileSeqRef.current += 1
     setIsMenuOpen(false)
     await flushCurrentEditorSave()
     reset()
@@ -78,12 +84,14 @@ function App(): React.JSX.Element {
   }, [openFolder, reset, flushCurrentEditorSave])
 
   const handleOpenRecent = useCallback(async (path: string) => {
+    openFileSeqRef.current += 1
     await flushCurrentEditorSave()
     reset()
     await openRecentFolder(path)
   }, [openRecentFolder, reset, flushCurrentEditorSave])
 
   const handleCloseWorkspace = useCallback(async () => {
+    openFileSeqRef.current += 1
     setIsMenuOpen(false)
     await flushCurrentEditorSave()
     reset()
@@ -188,18 +196,37 @@ function App(): React.JSX.Element {
 
   const handleOpenFile = useCallback(
     async (file: import('./types').WikiFile) => {
+      const seq = ++openFileSeqRef.current
       setError(null)
       await flushCurrentEditorSave()
+      if (seq !== openFileSeqRef.current) return
       await loadContent(file)
     },
     [loadContent, flushCurrentEditorSave]
+  )
+
+  const handleJumpHeading = useCallback(
+    (id: string) => {
+      if (doc.mode === 'source') {
+        const sourceContent = sourceEditorRef.current?.getContent()
+        const lineNumber = getHeadingLine(id, sourceContent)
+        if (lineNumber !== undefined) {
+          setActiveId(id)
+          sourceEditorRef.current?.scrollToLine(lineNumber)
+        }
+        return
+      }
+
+      jumpToHeading(id)
+    },
+    [doc.mode, getHeadingLine, jumpToHeading, setActiveId]
   )
 
   useEffect(() => {
     if (doc.mode === 'preview' && doc.file && contentRef.current) {
       setupObserver(contentRef.current)
     }
-  }, [doc.mode, doc.file, setupObserver])
+  }, [doc.mode, doc.file, documentPath, headings.length, setupObserver])
 
   useEffect(() => {
     if (doc.mode === 'preview' && doc.file && contentBodyRef.current) {
@@ -319,12 +346,14 @@ function App(): React.JSX.Element {
             <aside className="sidebar" style={{ width: sidebarWidth }}>
               <Sidebar
                 files={files}
-                selectedPath={doc.file?.relativePath ?? null}
+                selectedPath={documentPath}
                 headings={headings}
                 activeHeadingId={activeId}
                 onSelectFile={handleOpenFile}
-                onJumpHeading={jumpToHeading}
+                onJumpHeading={handleJumpHeading}
                 hasDocument={!!doc.file}
+                documentPath={documentPath}
+                documentLoading={doc.loading}
               />
             </aside>
             <div className="resize-handle" onMouseDown={handleResizeMouseDown} />
@@ -344,11 +373,13 @@ function App(): React.JSX.Element {
                   ) : doc.mode === 'preview' ? (
                     <div ref={contentRef} className="content-inner">
                       <MarkdownView
+                        key={documentPath}
                         source={doc.content}
-                        currentFilePath={doc.file?.relativePath ?? null}
+                        currentFilePath={documentPath}
                         workspaceRootPath={workspace?.rootPath ?? null}
                         files={files}
                         onOpenFile={handleOpenFile}
+                        onRendered={setupObserver}
                       />
                     </div>
                   ) : (

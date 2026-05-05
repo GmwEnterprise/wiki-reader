@@ -13,6 +13,8 @@ type SidebarProps = {
   onSelectFile: (file: WikiFile) => void
   onJumpHeading: (id: string) => void
   hasDocument: boolean
+  documentPath: string | null
+  documentLoading: boolean
 }
 
 export default function Sidebar({
@@ -22,7 +24,9 @@ export default function Sidebar({
   activeHeadingId,
   onSelectFile,
   onJumpHeading,
-  hasDocument
+  hasDocument,
+  documentPath,
+  documentLoading
 }: SidebarProps) {
   const [tab, setTab] = useState<SidebarTab>('files')
 
@@ -47,7 +51,13 @@ export default function Sidebar({
         {tab === 'files' ? (
           <FileList files={files} selectedPath={selectedPath} onSelect={onSelectFile} />
         ) : (
-          <HeadingList headings={headings} activeId={activeHeadingId} onJump={onJumpHeading} />
+          <HeadingList
+            key={documentPath ?? 'empty'}
+            headings={headings}
+            activeId={activeHeadingId}
+            onJump={onJumpHeading}
+            loading={documentLoading}
+          />
         )}
       </div>
     </>
