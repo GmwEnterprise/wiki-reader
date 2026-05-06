@@ -1,0 +1,150 @@
+:root {
+  --mermaid-src-bg: var(--md-pre-bg);
+  --mermaid-src-color: var(--md-pre-color);
+  --mermaid-src-border: var(--md-pre-border);
+  --mermaid-src-radius: var(--md-pre-radius);
+  --mermaid-src-padding: 20px 24px;
+  --mermaid-src-margin: var(--md-pre-margin);
+  --mermaid-src-shadow: var(--md-pre-shadow);
+  --mermaid-diagram-bg: transparent;
+  --mermaid-diagram-padding: 16px;
+  --mermaid-diagram-margin: var(--md-pre-margin);
+  --mermaid-diagram-radius: var(--md-pre-radius);
+  --mermaid-diagram-border: var(--md-pre-border);
+  --mermaid-diagram-shadow: var(--md-pre-shadow);
+  --mermaid-diagram-cursor: zoom-in;
+  --mermaid-error-bg: rgba(239, 68, 68, 0.08);
+  --mermaid-error-border: 1px solid rgba(239, 68, 68, 0.25);
+  --mermaid-error-color: #dc2626;
+  --mermaid-error-radius: var(--md-pre-radius);
+  --mermaid-error-margin: var(--md-pre-margin);
+  --mermaid-zoom-overlay-bg: rgba(0, 0, 0, 0.6);
+  --mermaid-zoom-close-size: 36px;
+  --mermaid-zoom-close-bg: rgba(255, 255, 255, 0.12);
+  --mermaid-zoom-close-hover-bg: rgba(255, 255, 255, 0.2);
+  --mermaid-zoom-close-color: #ffffff;
+  --mermaid-zoom-close-radius: 999px;
+}
+
+[data-theme='dark'] {
+  --mermaid-error-bg: rgba(239, 68, 68, 0.12);
+  --mermaid-error-border: 1px solid rgba(239, 68, 68, 0.3);
+  --mermaid-error-color: #f87171;
+  --mermaid-zoom-overlay-bg: rgba(0, 0, 0, 0.8);
+  --mermaid-zoom-close-bg: rgba(255, 255, 255, 0.08);
+  --mermaid-zoom-close-hover-bg: rgba(255, 255, 255, 0.15);
+}
+
+.markdown-body .mermaid-src {
+  margin: var(--mermaid-src-margin);
+  border-radius: var(--mermaid-src-radius);
+  border: var(--mermaid-src-border);
+  background: var(--mermaid-src-bg);
+  color: var(--mermaid-src-color);
+  padding: var(--mermaid-src-padding);
+  box-shadow: var(--mermaid-src-shadow);
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.markdown-body .mermaid-src code {
+  font-family: var(--md-code-font);
+  font-size: var(--md-code-size);
+  background: transparent;
+}
+
+.markdown-body .mermaid-diagram {
+  margin: var(--mermaid-diagram-margin);
+  padding: var(--mermaid-diagram-padding);
+  border-radius: var(--mermaid-diagram-radius);
+  border: var(--mermaid-diagram-border);
+  background: var(--mermaid-diagram-bg);
+  box-shadow: var(--mermaid-diagram-shadow);
+  text-align: center;
+  cursor: var(--mermaid-diagram-cursor);
+  transition: box-shadow var(--md-transition-speed);
+  overflow: hidden;
+}
+
+.markdown-body .mermaid-diagram:hover {
+  --mermaid-diagram-shadow: var(--md-img-hover-shadow);
+}
+
+.markdown-body .mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown-body .mermaid-error {
+  margin: var(--mermaid-error-margin);
+  padding: var(--md-pre-padding);
+  border-radius: var(--mermaid-error-radius);
+  background: var(--mermaid-error-bg);
+  border: var(--mermaid-error-border);
+  box-shadow: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.markdown-body .mermaid-error code {
+  color: var(--mermaid-error-color);
+  font-family: var(--md-code-font);
+  font-size: 13px;
+  background: transparent;
+}
+
+.mermaid-zoom-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mermaid-zoom-overlay-bg);
+  backdrop-filter: blur(4px);
+}
+
+.mermaid-zoom-container {
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  cursor: grab;
+  transform-origin: center center;
+  transition: none;
+  user-select: none;
+}
+
+.mermaid-zoom-container:active {
+  cursor: grabbing;
+}
+
+.mermaid-zoom-container svg {
+  max-width: none;
+  height: auto;
+}
+
+.mermaid-zoom-close {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1001;
+  width: var(--mermaid-zoom-close-size);
+  height: var(--mermaid-zoom-close-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--mermaid-zoom-close-radius);
+  background: var(--mermaid-zoom-close-bg);
+  color: var(--mermaid-zoom-close-color);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: background var(--md-transition-speed), transform var(--md-transition-speed);
+}
+
+.mermaid-zoom-close:hover {
+  background: var(--mermaid-zoom-close-hover-bg);
+  transform: scale(1.08);
+}

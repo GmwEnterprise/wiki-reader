@@ -6,6 +6,7 @@ import './App.css'
 import './sidebar.css'
 import './heading-list.css'
 import './markdown.css'
+import './mermaid.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

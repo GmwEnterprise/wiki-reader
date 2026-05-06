@@ -134,11 +134,18 @@
 
 ### Markdown 渲染
 
-- 说明：使用 markdown-it 渲染 Markdown，含代码高亮（highlight.js）、标题 ID 生成、wiki 链接跳转
+- 说明：使用 markdown-it 渲染 Markdown，含代码高亮（highlight.js）、标题 ID 生成、wiki 链接跳转、mermaid 占位标记
 - 入口：`src/renderer/src/components/MarkdownView.tsx`
 - 核心：`src/renderer/src/utils/markdown.ts`（`renderMarkdown`）、`src/renderer/src/components/MarkdownView.tsx`（渲染 + 链接处理）
 - 测试：`tests/unit/markdown-heading-ids.test.ts`
 - 备注：wiki 链接支持跳转到工作区内其他文件，状态栏朗读按钮可切换渲染区选中文本 Web Speech 朗读
+
+### Mermaid 图表渲染
+
+- 说明：将 ```` ```mermaid ```` 代码块渲染为 SVG 图表，支持明暗主题适配和全屏缩放交互
+- 入口：`src/renderer/src/components/MarkdownView.tsx`（集成 useMermaid hook + 缩放模态）
+- 核心：`src/renderer/src/hooks/useMermaid.ts`（mermaid 渲染、主题响应式重渲染）、`src/renderer/src/utils/markdown.ts`（mermaid 代码块占位输出）
+- 备注：依赖 mermaid 运行时；主题切换通过 MutationObserver 监听 data-theme 变化触发重渲染；缩放使用原生 wheel 事件（非 passive）+ CSS transform
 
 ### 图片资源加载
 

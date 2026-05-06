@@ -1,6 +1,7 @@
 import { memo, useMemo, useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import type { MouseEventHandler, RefObject } from 'react'
 import { renderMarkdown } from '../utils/markdown'
+import { useMermaid } from '../hooks/useMermaid'
 import type { WikiFile } from '../types'
 
 type MarkdownViewProps = {
@@ -121,7 +122,10 @@ export default function MarkdownView({
   const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
   const speechActionRef = useRef<SpeechAction | null>(null)
   const speechActionPopoverRef = useRef<HTMLDivElement>(null)
+  const zoomContainerRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ startX: number; startY: number; tx: number; ty: number } | null>(null)
   const [isSpeaking, setIsSpeaking] = useState(false)
+  const [zoomState, setZoomState] = useState<{ svgHtml: string; scale: number; tx: number; ty: number } | null>(null)
   const imageContextKey = `${workspaceRootPath ?? ''}\u0000${currentFilePath ?? ''}`
   const [loadedImages, setLoadedImages] = useState<{ key: string; urls: Record<string, string> }>({
     key: imageContextKey,
@@ -146,6 +150,8 @@ export default function MarkdownView({
 
   const html = useMemo(() => replaceLocalImageSrc(renderedHtml, activeImageUrls), [renderedHtml, activeImageUrls])
 
+  useMermaid(containerRef, html)
+
   useLayoutEffect(() => {
     if (containerRef.current) {
       onRendered?.(containerRef.current)
@@ -154,6 +160,15 @@ export default function MarkdownView({
 
   const handleClick = useCallback<MouseEventHandler<HTMLDivElement>>((e) => {
     const target = e.target as HTMLElement
+    const diagram = target.closest('.mermaid-diagram')
+    if (diagram) {
+      const svgEl = diagram.querySelector('svg')
+      if (svgEl) {
+        setZoomState({ svgHtml: svgEl.outerHTML, scale: 2, tx: 0, ty: 0 })
+      }
+      return
+    }
+
     const anchor = target.closest('a')
     if (!anchor) return
 
@@ -364,6 +379,28 @@ export default function MarkdownView({
     }
   }, [])
 
+  useEffect(() => {
+    if (!zoomState) return
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setZoomState(null)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [zoomState])
+
+  useEffect(() => {
+    if (!zoomState) return
+    const el = zoomContainerRef.current
+    if (!el) return
+    const handleWheel = (e: WheelEvent): void => {
+      e.preventDefault()
+      const delta = e.deltaY > 0 ? 0.9 : 1.1
+      setZoomState((prev) => prev ? { ...prev, scale: Math.min(Math.max(prev.scale * delta, 0.1), 10) } : null)
+    }
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [zoomState])
+
   if (renderResult.failed) {
     return (
       <div className="content-inner">
@@ -435,6 +472,45 @@ export default function MarkdownView({
             <rect x="1" y="1" width="10" height="10" rx="2" />
           </svg>
         </button>
+      ) : null}
+      {zoomState ? (
+        <div
+          className="mermaid-zoom-overlay"
+          onClick={() => setZoomState(null)}
+        >
+          <div
+            ref={zoomContainerRef}
+            className="mermaid-zoom-container"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => {
+              if (e.button !== 0) return
+              e.preventDefault()
+              dragRef.current = { startX: e.clientX, startY: e.clientY, tx: zoomState.tx, ty: zoomState.ty }
+            }}
+            onMouseMove={(e) => {
+              const drag = dragRef.current
+              if (!drag) return
+              setZoomState((prev) => prev ? { ...prev, tx: drag.tx + (e.clientX - drag.startX), ty: drag.ty + (e.clientY - drag.startY) } : null)
+            }}
+            onMouseUp={() => { dragRef.current = null }}
+            onMouseLeave={() => { dragRef.current = null }}
+            style={{
+              transform: `translate(${zoomState.tx}px, ${zoomState.ty}px) scale(${zoomState.scale})`
+            }}
+            dangerouslySetInnerHTML={{ __html: zoomState.svgHtml }}
+          />
+          <button
+            type="button"
+            className="mermaid-zoom-close"
+            title="关闭"
+            aria-label="关闭"
+            onClick={() => setZoomState(null)}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 5l10 10M15 5L5 15" />
+            </svg>
+          </button>
+        </div>
       ) : null}
     </>
   )

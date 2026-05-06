@@ -6,6 +6,9 @@ const md = new MarkdownIt({
   linkify: true,
   typographer: true,
   highlight(str: string, lang: string): string {
+    if (lang === 'mermaid') {
+      return `<pre class="mermaid-src" data-mermaid><code>${md.utils.escapeHtml(str)}</code></pre>`
+    }
     if (lang && hljs.getLanguage(lang)) {
       try {
         return `<pre class="hljs"><code>${hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}</code></pre>`
