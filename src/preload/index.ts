@@ -42,6 +42,13 @@ const api = {
     ipcRenderer.on('workspace:filesChanged', handler)
     return () => ipcRenderer.removeListener('workspace:filesChanged', handler)
   },
+  onFileContentChanged: (callback: (relativePath: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, relativePath: string): void => {
+      callback(relativePath)
+    }
+    ipcRenderer.on('workspace:fileContentChanged', handler)
+    return () => ipcRenderer.removeListener('workspace:fileContentChanged', handler)
+  },
   onBeforeClose: (callback: () => void) => {
     const handler = () => callback()
     ipcRenderer.on('window:before-close', handler)

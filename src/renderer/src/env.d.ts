@@ -32,6 +32,7 @@ declare global {
       watchWorkspace: (rootPath: string) => Promise<void>
       unwatchWorkspace: (rootPath: string) => Promise<void>
       onFilesChanged: (callback: () => void) => () => void
+      onFileContentChanged: (callback: (relativePath: string) => void) => () => void
       onBeforeClose: (callback: () => void) => () => void
       confirmClose: () => void
       onMenuOpenFolder: (callback: () => void) => () => void

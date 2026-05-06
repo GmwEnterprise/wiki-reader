@@ -20,6 +20,7 @@ import {
 } from './recent-folders'
 
 const workspaceWatchCallbacks = new Map<string, () => void>()
+const workspaceWatchContentCallbacks = new Map<string, (relativePath: string) => void>()
 const workspaceWatchClosedHandlers = new Set<number>()
 
 function getWorkspaceWatchKey(winId: number, rootPath: string): string {
@@ -47,8 +48,9 @@ function ensureWorkspaceWatchCleanup(win: BrowserWindow): void {
       const parsedKey = parseWorkspaceWatchKey(key)
       if (!parsedKey || parsedKey.winId !== win.id) continue
 
-      unwatchWorkspace(parsedKey.rootPath, callback)
+      unwatchWorkspace(parsedKey.rootPath, callback, workspaceWatchContentCallbacks.get(key))
       workspaceWatchCallbacks.delete(key)
+      workspaceWatchContentCallbacks.delete(key)
     }
   })
 }
@@ -140,7 +142,7 @@ export function registerIpcHandlers(): void {
     const key = getWorkspaceWatchKey(win.id, rootPath)
     const existingCallback = workspaceWatchCallbacks.get(key)
     if (existingCallback) {
-      unwatchWorkspace(rootPath, existingCallback)
+      unwatchWorkspace(rootPath, existingCallback, workspaceWatchContentCallbacks.get(key))
     }
 
     const callback = (): void => {
@@ -149,8 +151,15 @@ export function registerIpcHandlers(): void {
       }
     }
 
+    const contentCallback = (relativePath: string): void => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('workspace:fileContentChanged', relativePath)
+      }
+    }
+
     workspaceWatchCallbacks.set(key, callback)
-    watchWorkspace(rootPath, callback)
+    workspaceWatchContentCallbacks.set(key, contentCallback)
+    watchWorkspace(rootPath, callback, contentCallback)
   })
 
   ipcMain.handle('workspace:unwatch', (event, rootPath: string) => {
@@ -161,8 +170,9 @@ export function registerIpcHandlers(): void {
     const callback = workspaceWatchCallbacks.get(key)
     if (!callback) return
 
-    unwatchWorkspace(rootPath, callback)
+    unwatchWorkspace(rootPath, callback, workspaceWatchContentCallbacks.get(key))
     workspaceWatchCallbacks.delete(key)
+    workspaceWatchContentCallbacks.delete(key)
   })
 
   ipcMain.handle('terminal:create', (event, id: number, cwd: string | null) => {

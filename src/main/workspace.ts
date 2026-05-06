@@ -24,6 +24,7 @@ type WatchState = {
   timer: ReturnType<typeof setTimeout> | null
   structureChanged: boolean
   subscribers: Set<() => void>
+  contentSubscribers: Set<(relativePath: string) => void>
   closed: boolean
 }
 
@@ -136,10 +137,15 @@ export async function validatePath(rootPath: string, targetPath: string): Promis
   return normalizedTarget.startsWith(normalizedRoot + sep) || normalizedTarget === normalizedRoot
 }
 
-export function watchWorkspace(rootPath: string, onChange: () => void): void {
+export function watchWorkspace(
+  rootPath: string,
+  onChange: () => void,
+  onContentChange?: (relativePath: string) => void
+): void {
   const existingState = watchers.get(rootPath)
   if (existingState && !existingState.closed) {
     existingState.subscribers.add(onChange)
+    if (onContentChange) existingState.contentSubscribers.add(onContentChange)
     return
   }
 
@@ -153,6 +159,7 @@ export function watchWorkspace(rootPath: string, onChange: () => void): void {
     timer: null,
     structureChanged: false,
     subscribers: new Set([onChange]),
+    contentSubscribers: new Set(onContentChange ? [onContentChange] : []),
     closed: false
   }
 
@@ -178,19 +185,33 @@ export function watchWorkspace(rootPath: string, onChange: () => void): void {
 
   watcher.on('add', () => scheduleChange(true))
   watcher.on('unlink', () => scheduleChange(true))
-  // 内容变更不刷新文件树，只用于合并附近的结构变化事件。
-  watcher.on('change', () => scheduleChange(false))
+  watcher.on('change', (changedPath: string) => {
+    scheduleChange(false)
+    if (state.contentSubscribers.size > 0) {
+      const relativePath = relative(rootPath, join(rootPath, changedPath))
+      for (const subscriber of state.contentSubscribers) {
+        subscriber(relativePath)
+      }
+    }
+  })
 
   watchers.set(rootPath, state)
 }
 
-export function unwatchWorkspace(rootPath: string, onChange?: () => void): void {
+export function unwatchWorkspace(
+  rootPath: string,
+  onChange?: () => void,
+  onContentChange?: (relativePath: string) => void
+): void {
   const state = watchers.get(rootPath)
   if (state) {
     if (onChange) {
       state.subscribers.delete(onChange)
-      if (state.subscribers.size > 0) return
     }
+    if (onContentChange) {
+      state.contentSubscribers.delete(onContentChange)
+    }
+    if (state.subscribers.size > 0 || state.contentSubscribers.size > 0) return
 
     if (state.timer) {
       clearTimeout(state.timer)

@@ -14,7 +14,7 @@ import { getWorkspaceShellState } from './appShell'
 function App(): React.JSX.Element {
   const { workspace, files, openFolder, openRecentFolder, closeWorkspace } = useWorkspace()
   const { theme, toggleTheme } = useTheme()
-  const { doc, loadContent, markDirty, syncContent, flushSave, setMode, reset } = useDocument(
+  const { doc, loadContent, markDirty, syncContent, syncExternalContent, flushSave, setMode, reset } = useDocument(
     workspace?.rootPath ?? null
   )
   const documentPath = doc.file?.relativePath ?? null
@@ -150,6 +150,41 @@ function App(): React.JSX.Element {
   }, [])
 
   const filePathSet = useMemo(() => new Set(files.map((f) => f.relativePath)), [files])
+
+  const refreshCurrentContent = useCallback(async (changedPath?: string) => {
+    if (!workspace || !doc.file || doc.dirty) return
+    if (changedPath && doc.file.relativePath !== changedPath) return
+
+    const result = await window.api.readFile(workspace.rootPath, doc.file.relativePath)
+    if (!result.success || result.content === undefined || result.content === doc.content) return
+    syncExternalContent(result.content)
+  }, [workspace, doc.file, doc.dirty, doc.content, syncExternalContent])
+
+  useEffect(() => {
+    if (!workspace) return
+    const unsubscribe = window.api.onFileContentChanged((changedPath: string) => {
+      void refreshCurrentContent(changedPath)
+    })
+    return unsubscribe
+  }, [workspace, refreshCurrentContent])
+
+  useEffect(() => {
+    if (!workspace) return
+
+    const handleFocus = (): void => {
+      void refreshCurrentContent()
+    }
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === 'visible') void refreshCurrentContent()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [workspace, refreshCurrentContent])
 
   useEffect(() => {
     if (doc.file && workspace) {

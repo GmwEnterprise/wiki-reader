@@ -77,7 +77,7 @@
 
 ### 文件变更监听
 
-- 说明：通过 chokidar 监听工作区 Markdown 文件变化（新增/删除），去抖后通知渲染进程刷新文件列表
+- 说明：通过 chokidar 监听工作区 Markdown 文件变化；新增/删除时去抖刷新文件列表，内容变更时通知渲染进程同步当前文档
 - 入口：`src/main/workspace.ts:139-185`（`watchWorkspace`）
 - 核心：`src/main/workspace.ts`（`watchWorkspace`、`unwatchWorkspace`）、`src/main/ipc-handlers.ts:135-166`（IPC 桥接）
 

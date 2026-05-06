@@ -134,6 +134,20 @@ export function useDocument(workspaceRootPath: string | null) {
     })
   }, [])
 
+  const syncExternalContent = useCallback((content: string) => {
+    originalContentRef.current = content
+    setDoc((prev) => {
+      const next = {
+        ...prev,
+        content,
+        dirty: false,
+        loading: false
+      }
+      docRef.current = next
+      return next
+    })
+  }, [])
+
   const flushSave = useCallback(async (contentOverride?: string) => {
     cancelAutoSave()
     await saveCurrentDoc(contentOverride)
@@ -159,5 +173,5 @@ export function useDocument(workspaceRootPath: string | null) {
     setDoc(next)
   }, [cancelAutoSave])
 
-  return { doc, loadContent, markDirty, syncContent, flushSave, setMode, reset }
+  return { doc, loadContent, markDirty, syncContent, syncExternalContent, flushSave, setMode, reset }
 }
