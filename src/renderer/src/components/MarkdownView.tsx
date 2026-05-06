@@ -1,4 +1,5 @@
-import { useMemo, useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import { memo, useMemo, useRef, useCallback, useEffect, useLayoutEffect, useState } from 'react'
+import type { MouseEventHandler, RefObject } from 'react'
 import { renderMarkdown } from '../utils/markdown'
 import type { WikiFile } from '../types'
 
@@ -9,6 +10,20 @@ type MarkdownViewProps = {
   files: WikiFile[]
   onOpenFile: (file: WikiFile) => void
   onRendered?: (container: HTMLElement) => void
+  selectionSpeechEnabled: boolean
+}
+
+type SpeechAction = {
+  text: string
+  x: number
+  y: number
+}
+
+type MarkdownContentProps = {
+  html: string
+  containerRef: RefObject<HTMLDivElement | null>
+  onClick: MouseEventHandler<HTMLDivElement>
+  onMouseUp: MouseEventHandler<HTMLDivElement>
 }
 
 function normalizePath(p: string): string {
@@ -74,17 +89,39 @@ function toBlobUrl(buffer: ArrayBuffer, mimeType: string): string {
   return URL.createObjectURL(new Blob([buffer], { type: mimeType }))
 }
 
+const MarkdownContent = memo(function MarkdownContent({
+  html,
+  containerRef,
+  onClick,
+  onMouseUp
+}: MarkdownContentProps) {
+  return (
+    <div
+      ref={containerRef}
+      className="markdown-body"
+      dangerouslySetInnerHTML={{ __html: html }}
+      onClick={onClick}
+      onMouseUp={onMouseUp}
+    />
+  )
+})
+
 export default function MarkdownView({
   source,
   currentFilePath,
   workspaceRootPath,
   files,
   onOpenFile,
-  onRendered
+  onRendered,
+  selectionSpeechEnabled
 }: MarkdownViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const loadingRef = useRef<Set<string>>(new Set())
   const prevImageUrlsRef = useRef<Record<string, string>>({})
+  const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
+  const speechActionRef = useRef<SpeechAction | null>(null)
+  const speechActionPopoverRef = useRef<HTMLDivElement>(null)
+  const [isSpeaking, setIsSpeaking] = useState(false)
   const imageContextKey = `${workspaceRootPath ?? ''}\u0000${currentFilePath ?? ''}`
   const [loadedImages, setLoadedImages] = useState<{ key: string; urls: Record<string, string> }>({
     key: imageContextKey,
@@ -115,7 +152,7 @@ export default function MarkdownView({
     }
   }, [html, onRendered])
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
+  const handleClick = useCallback<MouseEventHandler<HTMLDivElement>>((e) => {
     const target = e.target as HTMLElement
     const anchor = target.closest('a')
     if (!anchor) return
@@ -146,6 +183,80 @@ export default function MarkdownView({
       }
     }
   }, [currentFilePath, files, onOpenFile])
+
+  const stopSpeech = useCallback(() => {
+    if (!('speechSynthesis' in window)) return
+    window.speechSynthesis.cancel()
+    speechUtteranceRef.current = null
+    setIsSpeaking(false)
+  }, [])
+
+  const hideSpeechAction = useCallback(() => {
+    speechActionRef.current = null
+    if (speechActionPopoverRef.current) {
+      speechActionPopoverRef.current.hidden = true
+    }
+  }, [])
+
+  const speakSelectedText = useCallback(() => {
+    const speechAction = speechActionRef.current
+    if (!speechAction || !('speechSynthesis' in window)) return
+
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(speechAction.text)
+    utterance.lang = 'zh-CN'
+    utterance.rate = 1
+    utterance.pitch = 1
+    speechUtteranceRef.current = utterance
+    hideSpeechAction()
+    setIsSpeaking(true)
+
+    const finish = () => {
+      if (speechUtteranceRef.current === utterance) {
+        speechUtteranceRef.current = null
+        setIsSpeaking(false)
+      }
+    }
+    utterance.onend = finish
+    utterance.onerror = finish
+    window.speechSynthesis.speak(utterance)
+  }, [hideSpeechAction])
+
+  const handleMouseUp = useCallback<MouseEventHandler<HTMLDivElement>>((e) => {
+    if (!selectionSpeechEnabled) return
+
+    const container = containerRef.current
+    const selection = window.getSelection()
+    if (!container || !selection || selection.isCollapsed || selection.rangeCount === 0) {
+      hideSpeechAction()
+      return
+    }
+
+    const range = selection.getRangeAt(0)
+    if (!container.contains(range.commonAncestorContainer)) {
+      hideSpeechAction()
+      return
+    }
+
+    const text = selection.toString().trim()
+    if (!text) {
+      hideSpeechAction()
+      return
+    }
+
+    speechActionRef.current = { text, x: e.clientX, y: e.clientY }
+    if (speechActionPopoverRef.current) {
+      speechActionPopoverRef.current.style.setProperty('--speech-action-x', `${e.clientX}px`)
+      speechActionPopoverRef.current.style.setProperty('--speech-action-y', `${e.clientY}px`)
+      speechActionPopoverRef.current.hidden = false
+    }
+  }, [hideSpeechAction, selectionSpeechEnabled])
+
+  useEffect(() => {
+    if (selectionSpeechEnabled) return
+    hideSpeechAction()
+    stopSpeech()
+  }, [hideSpeechAction, selectionSpeechEnabled, stopSpeech])
 
   useEffect(() => {
     const container = containerRef.current
@@ -247,6 +358,9 @@ export default function MarkdownView({
   useEffect(() => {
     return () => {
       revokeBlobUrls(prevImageUrlsRef.current)
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel()
+      }
     }
   }, [])
 
@@ -259,11 +373,69 @@ export default function MarkdownView({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="markdown-body"
-      dangerouslySetInnerHTML={{ __html: html }}
-      onClick={handleClick}
-    />
+    <>
+      <MarkdownContent
+        html={html}
+        containerRef={containerRef}
+        onClick={handleClick}
+        onMouseUp={handleMouseUp}
+      />
+      {'speechSynthesis' in window ? (
+        <div
+          ref={speechActionPopoverRef}
+          className="speech-action-popover"
+          hidden
+        >
+          <button
+            type="button"
+            className="speech-action-button"
+            tabIndex={-1}
+            title="朗读选中文本"
+            aria-label="朗读选中文本"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={speakSelectedText}
+          >
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M19 11a7 7 0 0 1-14 0M12 18v3M8 21h8"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="speech-action-close"
+            tabIndex={-1}
+            title="关闭朗读按钮"
+            aria-label="关闭朗读按钮"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={hideSpeechAction}
+          />
+        </div>
+      ) : null}
+      {isSpeaking ? (
+        <button
+          type="button"
+          className="speech-status-button"
+          title="停止朗读"
+          aria-label="停止朗读"
+          onClick={stopSpeech}
+        >
+          <svg aria-hidden="true" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <rect x="1" y="1" width="10" height="10" rx="2" />
+          </svg>
+        </button>
+      ) : null}
+    </>
   )
 }

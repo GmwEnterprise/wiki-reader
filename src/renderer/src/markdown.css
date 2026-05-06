@@ -56,6 +56,16 @@
   --md-broken-bg: rgba(0, 0, 0, 0.04);
   --md-broken-border: 1px dashed rgba(0, 0, 0, 0.15);
   --md-img-hover-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
+  --md-speech-action-size: 34px;
+  --md-speech-action-bg: rgba(32, 32, 36, 0.92);
+  --md-speech-action-color: #ffffff;
+  --md-speech-action-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --md-speech-action-border: 1px solid rgba(255, 255, 255, 0.16);
+  --md-speech-close-bg: #ef4444;
+  --md-speech-close-color: #ffffff;
+  --md-speech-status-bg: rgba(32, 32, 36, 0.9);
+  --md-speech-status-color: #ffffff;
+  --md-speech-status-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
   --hljs-keyword: #a626a4;
   --hljs-string: #50a14f;
   --hljs-comment: #a0a1a7;
@@ -88,6 +98,13 @@
   --md-img-hover-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   --md-broken-bg: rgba(255, 255, 255, 0.06);
   --md-broken-border: 1px dashed rgba(255, 255, 255, 0.12);
+  --md-speech-action-bg: rgba(245, 245, 247, 0.94);
+  --md-speech-action-color: #1f1f23;
+  --md-speech-action-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  --md-speech-action-border: 1px solid rgba(255, 255, 255, 0.22);
+  --md-speech-status-bg: rgba(245, 245, 247, 0.94);
+  --md-speech-status-color: #1f1f23;
+  --md-speech-status-shadow: 0 10px 30px rgba(0, 0, 0, 0.34);
   --hljs-keyword: #c678dd;
   --hljs-string: #98c379;
   --hljs-comment: #5c6370;
@@ -359,6 +376,107 @@
 .markdown-body img[data-broken] {
   box-shadow: none;
   border-radius: 6px;
+}
+
+.speech-action-button {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.speech-action-popover {
+  position: fixed;
+  left: var(--speech-action-x);
+  top: var(--speech-action-y);
+  z-index: 40;
+  width: var(--md-speech-action-size);
+  height: var(--md-speech-action-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--md-speech-action-border);
+  border-radius: 999px;
+  background: var(--md-speech-action-bg);
+  color: var(--md-speech-action-color);
+  box-shadow: var(--md-speech-action-shadow);
+  cursor: pointer;
+  transform: translate(8px, -50%);
+  backdrop-filter: blur(16px);
+}
+
+.speech-action-popover:hover {
+  transform: translate(8px, -50%) scale(1.05);
+}
+
+.speech-action-popover[hidden] {
+  display: none;
+}
+
+.speech-action-close {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--md-speech-action-bg);
+  border-radius: 999px;
+  background: var(--md-speech-close-bg);
+  color: var(--md-speech-close-color);
+  cursor: pointer;
+}
+
+.speech-action-close::before,
+.speech-action-close::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 6px;
+  height: 1.5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.speech-action-close::before {
+  transform: rotate(45deg);
+}
+
+.speech-action-close::after {
+  transform: rotate(-45deg);
+}
+
+.speech-status-button {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  z-index: 40;
+  min-width: 42px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: var(--md-speech-action-border);
+  border-radius: 999px;
+  background: var(--md-speech-status-bg);
+  color: var(--md-speech-status-color);
+  box-shadow: var(--md-speech-status-shadow);
+  cursor: pointer;
+  transform: translateX(-50%);
+  backdrop-filter: blur(16px);
+}
+
+.speech-status-button:hover {
+  transform: translateX(-50%) scale(1.04);
 }
 
 .broken-image-placeholder {

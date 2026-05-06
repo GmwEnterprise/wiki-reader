@@ -138,7 +138,7 @@
 - 入口：`src/renderer/src/components/MarkdownView.tsx`
 - 核心：`src/renderer/src/utils/markdown.ts`（`renderMarkdown`）、`src/renderer/src/components/MarkdownView.tsx`（渲染 + 链接处理）
 - 测试：`tests/unit/markdown-heading-ids.test.ts`
-- 备注：wiki 链接支持跳转到工作区内其他文件
+- 备注：wiki 链接支持跳转到工作区内其他文件，状态栏朗读按钮可切换渲染区选中文本 Web Speech 朗读
 
 ### 图片资源加载
 

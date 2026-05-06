@@ -31,6 +31,9 @@ function App(): React.JSX.Element {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [initialOpenPath, setInitialOpenPath] = useState(() => window.api.getInitialOpenPath())
   const [error, setError] = useState<string | null>(null)
+  const [selectionSpeechEnabled, setSelectionSpeechEnabled] = useState(() => {
+    return localStorage.getItem('selection-speech-enabled') === 'true'
+  })
   const isResizing = useRef(false)
   const initialOpenStartedRef = useRef(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -137,6 +140,14 @@ function App(): React.JSX.Element {
     })
     return unsub
   }, [doc.file, doc.mode, setMode, switchToPreview])
+
+  const toggleSelectionSpeech = useCallback(() => {
+    setSelectionSpeechEnabled((enabled) => {
+      const next = !enabled
+      localStorage.setItem('selection-speech-enabled', String(next))
+      return next
+    })
+  }, [])
 
   const filePathSet = useMemo(() => new Set(files.map((f) => f.relativePath)), [files])
 
@@ -380,6 +391,7 @@ function App(): React.JSX.Element {
                         files={files}
                         onOpenFile={handleOpenFile}
                         onRendered={setupObserver}
+                        selectionSpeechEnabled={selectionSpeechEnabled}
                       />
                     </div>
                   ) : (
@@ -406,6 +418,31 @@ function App(): React.JSX.Element {
           <footer className="statusbar">
             <div className="statusbar-left" />
             <div className="statusbar-right">
+              <button
+                className={`statusbar-btn statusbar-icon-btn ${selectionSpeechEnabled ? 'statusbar-btn--active' : ''}`}
+                type="button"
+                onClick={toggleSelectionSpeech}
+                title={selectionSpeechEnabled ? '关闭选区朗读' : '开启选区朗读'}
+                aria-label={selectionSpeechEnabled ? '关闭选区朗读' : '开启选区朗读'}
+                aria-pressed={selectionSpeechEnabled}
+              >
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M19 11a7 7 0 0 1-14 0M12 18v3M8 21h8"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
               <button
                 className={`statusbar-btn ${terminal.visible ? 'statusbar-btn--active' : ''}`}
                 type="button"

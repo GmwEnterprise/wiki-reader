@@ -603,6 +603,15 @@ body,
   line-height: 18px;
 }
 
+.statusbar-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 20px;
+  padding: 1px 6px;
+}
+
 .statusbar-btn:hover {
   background: var(--bg-hover);
   color: var(--text);
