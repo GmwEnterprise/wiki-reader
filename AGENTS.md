@@ -96,12 +96,12 @@ gh release create v1.0.0 dist/wiki-reader-1.0.0-setup.exe --title "v1.0.0" --not
 
 ### 版本更新
 
-1. 修改 `package.json` 中的 `version` 字段（如改为 `1.1.0`）
+1. 修改 `package.json` 中的 `version` 字段（如改为 `1.0.1`）
 2. 重新打包并发布：
 
 ```powershell
 pnpm build:win
-gh release create v1.1.0 dist/wiki-reader-1.1.0-setup.exe --title "v1.1.0" --notes "更新说明"
+gh release create v1.0.1 dist/wiki-reader-1.0.1-setup.exe --title "v1.0.1" --notes "更新说明"
 ```
 
 建议发布前先用 `pnpm build:unpack` 打出解压版进行本地验证。
