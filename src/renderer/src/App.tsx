@@ -246,6 +246,10 @@ function App(): React.JSX.Element {
       setError(null)
       await flushCurrentEditorSave()
       if (seq !== openFileSeqRef.current) return
+      scrollPositionRef.current = 0
+      if (contentBodyRef.current) {
+        contentBodyRef.current.scrollTop = 0
+      }
       await loadContent(file)
     },
     [loadContent, flushCurrentEditorSave]

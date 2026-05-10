@@ -13,6 +13,7 @@
   --mermaid-diagram-border: var(--md-pre-border);
   --mermaid-diagram-shadow: var(--md-pre-shadow);
   --mermaid-diagram-cursor: zoom-in;
+  --mermaid-diagram-max-height: 70vh;
   --mermaid-error-bg: rgba(239, 68, 68, 0.08);
   --mermaid-error-border: 1px solid rgba(239, 68, 68, 0.25);
   --mermaid-error-color: #dc2626;
@@ -64,7 +65,8 @@
   text-align: center;
   cursor: var(--mermaid-diagram-cursor);
   transition: box-shadow var(--md-transition-speed);
-  overflow: hidden;
+  max-height: var(--mermaid-diagram-max-height);
+  overflow: auto;
 }
 
 .markdown-body .mermaid-diagram:hover {
