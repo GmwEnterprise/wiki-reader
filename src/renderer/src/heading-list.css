@@ -37,26 +37,12 @@
   padding: var(--heading-list-padding-y-item) var(--heading-list-base-padding);
   padding-left: calc(var(--heading-list-base-padding) + var(--node-depth, 0) * var(--heading-list-indent));
   font-size: var(--heading-list-font-size);
+  font-weight: 400;
   line-height: 1.4;
   color: var(--text);
   cursor: pointer;
   user-select: none;
   transition: background 0.12s, color 0.12s;
-}
-
-.heading-item--level-1 {
-  font-weight: 600;
-}
-
-.heading-item--level-2 {
-  font-weight: 500;
-}
-
-.heading-item--level-3,
-.heading-item--level-4,
-.heading-item--level-5,
-.heading-item--level-6 {
-  color: var(--text-secondary);
 }
 
 .heading-item:hover {

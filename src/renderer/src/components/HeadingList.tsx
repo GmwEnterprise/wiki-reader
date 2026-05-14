@@ -134,10 +134,10 @@ function HeadingNode({
     <>
       <div
         className={
-          'heading-item heading-item--level-' + heading.level
+          'heading-item'
           + (isActive ? ' heading-item--active' : '')
         }
-        style={{ '--node-depth': depth } as React.CSSProperties}
+        style={{ '--node-depth': heading.level - 1 } as React.CSSProperties}
         onClick={() => {
           if (hasChildren) {
             toggle(heading.id)

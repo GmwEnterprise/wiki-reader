@@ -63,13 +63,20 @@ export function createMainWindow(initialPath?: string): BrowserWindow {
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
 
-  const defaultWidth = Math.min(Math.round(screenWidth * 0.75), 1600)
-  const defaultHeight = Math.min(Math.round(screenHeight * 0.8), 1000)
+  const defaultHeight = Math.min(
+    Math.round(screenHeight * (screenHeight < 1080 ? 0.95 : 0.9)),
+    1820
+  )
+  const defaultWidth = Math.round(defaultHeight * 0.9)
+  const defaultX = Math.max(0, Math.round((screenWidth - defaultWidth) / 2) - 80)
+  const defaultY = Math.max(0, Math.round((screenHeight - defaultHeight) / 2))
 
   const win = new BrowserWindow({
+    x: defaultX,
+    y: defaultY,
     width: defaultWidth,
     height: defaultHeight,
-    minWidth: 800,
+    minWidth: 700,
     minHeight: 600,
     title: initialPath ? `${basename(initialPath)} - Wiki Reader` : 'Wiki Reader',
     show: false,

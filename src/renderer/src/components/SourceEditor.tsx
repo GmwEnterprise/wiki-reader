@@ -13,6 +13,7 @@ type SourceEditorProps = {
   onDirty: () => void
   onSave: () => void
   onEscape: () => void
+  onContentChange?: (content: string) => void
   darkMode?: boolean
 }
 
@@ -22,7 +23,7 @@ export type SourceEditorHandle = {
 }
 
 const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(function SourceEditor(
-  { content, onDirty, onSave, onEscape, darkMode = false },
+  { content, onDirty, onSave, onEscape, onContentChange, darkMode = false },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -33,6 +34,9 @@ const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(function 
   onSaveRef.current = onSave
   const onEscapeRef = useRef(onEscape)
   onEscapeRef.current = onEscape
+  const onContentChangeRef = useRef(onContentChange)
+  onContentChangeRef.current = onContentChange
+  const contentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useImperativeHandle(ref, () => ({
     getContent: () => viewRef.current?.state.doc.toString() ?? content,
@@ -81,6 +85,10 @@ const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(function 
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onDirtyRef.current()
+            if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current)
+            contentDebounceRef.current = setTimeout(() => {
+              onContentChangeRef.current?.(update.state.doc.toString())
+            }, 300)
           }
         }),
         EditorView.lineWrapping,
@@ -110,6 +118,7 @@ const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(function 
     return () => {
       view.destroy()
       viewRef.current = null
+      if (contentDebounceRef.current) clearTimeout(contentDebounceRef.current)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

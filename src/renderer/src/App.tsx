@@ -19,8 +19,10 @@ function App(): React.JSX.Element {
     workspace?.rootPath ?? null
   )
   const documentPath = doc.file?.relativePath ?? null
+  const [sourceContent, setSourceContent] = useState(doc.content)
+  const headingsContent = doc.mode === 'source' ? sourceContent : doc.content
   const { headings, activeId, setupObserver, jumpToHeading, setActiveId, getHeadingLine } = useHeadings(
-    doc.content,
+    headingsContent,
     documentPath
   )
   const terminal = useTerminalTabs()
@@ -270,8 +272,8 @@ function App(): React.JSX.Element {
   const handleJumpHeading = useCallback(
     (id: string) => {
       if (doc.mode === 'source') {
-        const sourceContent = sourceEditorRef.current?.getContent()
-        const lineNumber = getHeadingLine(id, sourceContent)
+        const sourceContentForJump = sourceEditorRef.current?.getContent() ?? sourceContent
+        const lineNumber = getHeadingLine(id, sourceContentForJump)
         if (lineNumber !== undefined) {
           setActiveId(id)
           sourceEditorRef.current?.scrollToLine(lineNumber)
@@ -281,7 +283,7 @@ function App(): React.JSX.Element {
 
       jumpToHeading(id)
     },
-    [doc.mode, getHeadingLine, jumpToHeading, setActiveId]
+    [doc.mode, sourceContent, getHeadingLine, jumpToHeading, setActiveId]
   )
 
   const handleRefreshFiles = useCallback(() => {
@@ -304,6 +306,10 @@ function App(): React.JSX.Element {
       setupObserver(contentRef.current)
     }
   }, [doc.mode, doc.file, documentPath, headings.length, setupObserver])
+
+  useEffect(() => {
+    setSourceContent(doc.content)
+  }, [doc.content])
 
   useEffect(() => {
     if (doc.mode === 'preview' && doc.file && contentBodyRef.current) {
@@ -470,6 +476,7 @@ function App(): React.JSX.Element {
                       onDirty={markDirty}
                       onSave={() => flushSave(sourceEditorRef.current?.getContent())}
                       onEscape={switchToPreview}
+                      onContentChange={setSourceContent}
                       darkMode={theme === 'dark'}
                     />
                   )
