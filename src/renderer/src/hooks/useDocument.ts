@@ -18,16 +18,22 @@ export function useDocument(workspaceRootPath: string | null) {
 
   const saveCurrentDoc = useCallback(async (contentOverride?: string) => {
     const current = docRef.current
-    if (!current.file || !workspaceRootPath) return
+    if (!current.file) return
     const savedRelativePath = current.file.relativePath
     const savedEditVersion = editVersionRef.current
     const savedContent = contentOverride ?? current.content
     if (!current.dirty && savedContent === originalContentRef.current) return
-    const result = await window.api.saveFile(
-      workspaceRootPath,
-      savedRelativePath,
-      savedContent
-    )
+
+    let result: { success: boolean }
+    if (workspaceRootPath) {
+      result = await window.api.saveFile(
+        workspaceRootPath,
+        savedRelativePath,
+        savedContent
+      )
+    } else {
+      result = await window.api.saveFileByPath(savedRelativePath, savedContent)
+    }
     if (result.success) {
       if (
         docRef.current.file?.relativePath === savedRelativePath &&
@@ -63,7 +69,6 @@ export function useDocument(workspaceRootPath: string | null) {
 
   const loadContent = useCallback(
     async (file: WikiFile) => {
-      if (!workspaceRootPath) return
       const seq = ++loadSeqRef.current
       cancelAutoSave()
       const loadingDoc = {
@@ -75,7 +80,14 @@ export function useDocument(workspaceRootPath: string | null) {
       }
       docRef.current = loadingDoc
       setDoc(loadingDoc)
-      const result = await window.api.readFile(workspaceRootPath, file.relativePath)
+
+      let result: { success: boolean; content?: string; error?: string }
+      if (workspaceRootPath) {
+        result = await window.api.readFile(workspaceRootPath, file.relativePath)
+      } else {
+        result = await window.api.readFileByPath(file.relativePath)
+      }
+
       if (seq !== loadSeqRef.current) return
       editVersionRef.current += 1
       if (result.success && result.content !== undefined) {

@@ -665,6 +665,12 @@ body,
   opacity: 0.9;
 }
 
+.welcome-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
 .welcome-hint {
   margin-top: 16px;
   font-size: 13px;
@@ -722,8 +728,9 @@ body,
 .welcome-recent-item-btn {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
   padding: 8px 10px;
   border: none;
   border-radius: 6px;
@@ -735,6 +742,20 @@ body,
 
 .welcome-recent-item-btn:hover {
   background: var(--bg-hover);
+}
+
+.welcome-recent-item-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+}
+
+.welcome-recent-item-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
 }
 
 .welcome-recent-item-name {

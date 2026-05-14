@@ -2,64 +2,89 @@ import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 
-export type RecentFolder = {
+export type RecentItem = {
   path: string
   name: string
+  type: 'file' | 'folder'
   lastAccessed: number
 }
 
 const MAX_RECENT = 15
 const STORAGE_FILE = join(app.getPath('userData'), 'recent-folders.json')
 
-function readFromDisk(): RecentFolder[] {
+function readFromDisk(): RecentItem[] {
   if (!existsSync(STORAGE_FILE)) return []
   try {
     const data = readFileSync(STORAGE_FILE, 'utf-8')
     const parsed = JSON.parse(data)
     if (!Array.isArray(parsed)) return []
-    return parsed
+    return parsed.map((item: any) => ({
+      path: item.path,
+      name: item.name,
+      type: item.type === 'file' ? 'file' : 'folder',
+      lastAccessed: item.lastAccessed ?? 0
+    }))
   } catch {
     return []
   }
 }
 
-function writeToDisk(folders: RecentFolder[]): void {
+function writeToDisk(items: RecentItem[]): void {
   try {
-    writeFileSync(STORAGE_FILE, JSON.stringify(folders, null, 2), 'utf-8')
+    writeFileSync(STORAGE_FILE, JSON.stringify(items, null, 2), 'utf-8')
   } catch {
     // 写入失败不阻塞主流程
   }
 }
 
 export function addRecentFolder(folderPath: string, folderName: string): void {
-  if (!isValidRecentFolderPath(folderPath)) return
+  if (!isValidRecentPath(folderPath)) return
 
-  let folders = readFromDisk()
-  folders = folders.filter((f) => f.path !== folderPath)
-  folders.unshift({
+  let items = readFromDisk()
+  items = items.filter((f) => f.path !== folderPath)
+  items.unshift({
     path: folderPath,
     name: folderName,
+    type: 'folder',
     lastAccessed: Date.now()
   })
-  if (folders.length > MAX_RECENT) {
-    folders = folders.slice(0, MAX_RECENT)
+  if (items.length > MAX_RECENT) {
+    items = items.slice(0, MAX_RECENT)
   }
-  writeToDisk(folders)
+  writeToDisk(items)
   refreshJumpList()
 }
 
-export function getRecentFolders(): RecentFolder[] {
-  return readFromDisk().filter((f) => isValidRecentFolderPath(f.path))
-}
+export function addRecentFile(filePath: string, fileName: string): void {
+  if (!isValidRecentPath(filePath)) return
 
-export function removeRecentFolder(folderPath: string): void {
-  let folders = readFromDisk()
-  folders = folders.filter((f) => f.path !== folderPath)
-  writeToDisk(folders)
+  let items = readFromDisk()
+  items = items.filter((f) => f.path !== filePath)
+  items.unshift({
+    path: filePath,
+    name: fileName,
+    type: 'file',
+    lastAccessed: Date.now()
+  })
+  if (items.length > MAX_RECENT) {
+    items = items.slice(0, MAX_RECENT)
+  }
+  writeToDisk(items)
   refreshJumpList()
 }
 
-export function clearRecentFolders(): void {
+export function getRecentItems(): RecentItem[] {
+  return readFromDisk().filter((f) => isValidRecentPath(f.path))
+}
+
+export function removeRecentItem(itemPath: string): void {
+  let items = readFromDisk()
+  items = items.filter((f) => f.path !== itemPath)
+  writeToDisk(items)
+  refreshJumpList()
+}
+
+export function clearRecentItems(): void {
   writeToDisk([])
   app.clearRecentDocuments()
   refreshJumpList()
@@ -70,22 +95,30 @@ export function refreshJumpList(): void {
 
   app.clearRecentDocuments()
 
-  const folders = getRecentFolders().slice(0, 10)
+  const items = getRecentItems().slice(0, 10)
 
   app.setJumpList([
     {
       name: '最近打开',
-      items: folders.map((f) => ({
+      items: items.map((f) => ({
         type: 'task' as const,
         program: process.execPath,
         args: `--open "${f.path}"`,
         title: f.name,
-        description: f.path
+        description: f.path,
+        iconPath: f.type === 'folder'
+          ? process.execPath
+          : process.execPath,
+        iconIndex: f.type === 'folder' ? 0 : 0
       }))
     }
   ])
 }
 
-function isValidRecentFolderPath(folderPath: string): boolean {
-  return typeof folderPath === 'string' && folderPath.length > 0 && !folderPath.startsWith('--')
+function isValidRecentPath(itemPath: string): boolean {
+  return typeof itemPath === 'string' && itemPath.length > 0 && !itemPath.startsWith('--')
 }
+
+export const getRecentFolders = getRecentItems
+export const removeRecentFolder = removeRecentItem
+export const clearRecentFolders = clearRecentItems

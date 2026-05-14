@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import type { WikiFile } from './types'
+import type { WikiFile, SingleFileState } from './types'
 import { useWorkspace } from './hooks/useWorkspace'
 import { useDocument } from './hooks/useDocument'
 import { useHeadings } from './hooks/useHeadings'
@@ -34,6 +34,7 @@ function App(): React.JSX.Element {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [initialOpenPath, setInitialOpenPath] = useState(() => window.api.getInitialOpenPath())
   const [error, setError] = useState<string | null>(null)
+  const [singleFile, setSingleFile] = useState<SingleFileState | null>(null)
   const [selectionSpeechEnabled, setSelectionSpeechEnabled] = useState(() => {
     return localStorage.getItem('selection-speech-enabled') === 'true'
   })
@@ -87,24 +88,83 @@ function App(): React.JSX.Element {
     setIsMenuOpen(false)
     await flushCurrentEditorSave()
     reset()
+    if (singleFile) {
+      window.api.unwatchSingleFile(singleFile.absolutePath)
+      setSingleFile(null)
+    }
     await openFolder()
-  }, [openFolder, reset, flushCurrentEditorSave])
+  }, [openFolder, reset, flushCurrentEditorSave, singleFile])
 
   const handleOpenRecent = useCallback(async (path: string) => {
     openFileSeqRef.current += 1
     await flushCurrentEditorSave()
     reset()
-    await openRecentFolder(path)
-  }, [openRecentFolder, reset, flushCurrentEditorSave])
+    if (singleFile) {
+      window.api.unwatchSingleFile(singleFile.absolutePath)
+      setSingleFile(null)
+    }
+
+    const result = await window.api.openPath(path)
+    if (!result) return
+
+    if (result.type === 'folder') {
+      await openRecentFolder(path)
+    } else {
+      const sf: SingleFileState = { absolutePath: result.absolutePath, name: result.name, dirPath: result.dirPath }
+      setSingleFile(sf)
+      const file: WikiFile = { relativePath: result.absolutePath, name: result.name, mtimeMs: 0, size: 0 }
+      await loadContent(file)
+      window.api.watchSingleFile(result.absolutePath)
+    }
+  }, [openRecentFolder, loadContent, reset, flushCurrentEditorSave, singleFile])
 
   const handleCloseWorkspace = useCallback(async () => {
     openFileSeqRef.current += 1
     setIsMenuOpen(false)
     await flushCurrentEditorSave()
     reset()
+    if (singleFile) {
+      window.api.unwatchSingleFile(singleFile.absolutePath)
+      setSingleFile(null)
+    }
     closeWorkspace()
     window.api.closeWorkspace()
-  }, [flushCurrentEditorSave, reset, closeWorkspace])
+  }, [flushCurrentEditorSave, reset, closeWorkspace, singleFile])
+
+  const handleOpenSingleFile = useCallback(async () => {
+    openFileSeqRef.current += 1
+    setIsMenuOpen(false)
+    await flushCurrentEditorSave()
+    reset()
+    if (singleFile) {
+      window.api.unwatchSingleFile(singleFile.absolutePath)
+    }
+    if (workspace) {
+      closeWorkspace()
+      window.api.closeWorkspace()
+    }
+
+    const result = await window.api.openFileDialog()
+    if (!result) return
+
+    const sf: SingleFileState = { absolutePath: result.absolutePath, name: result.name, dirPath: result.dirPath }
+    setSingleFile(sf)
+    const file: WikiFile = { relativePath: result.absolutePath, name: result.name, mtimeMs: 0, size: 0 }
+    await loadContent(file)
+    window.api.watchSingleFile(result.absolutePath)
+  }, [flushCurrentEditorSave, reset, loadContent, singleFile, workspace, closeWorkspace])
+
+  const handleCloseSingleFile = useCallback(async () => {
+    openFileSeqRef.current += 1
+    setIsMenuOpen(false)
+    await flushCurrentEditorSave()
+    reset()
+    if (singleFile) {
+      window.api.unwatchSingleFile(singleFile.absolutePath)
+    }
+    setSingleFile(null)
+    window.api.closeWorkspace()
+  }, [flushCurrentEditorSave, reset, singleFile])
 
   useEffect(() => {
     const unsub = window.api.onMenuOpenFolder(() => {
@@ -159,13 +219,18 @@ function App(): React.JSX.Element {
   )
 
   const refreshCurrentContent = useCallback(async (changedPath?: string) => {
-    if (!workspace || !doc.file || doc.dirty) return
-    if (changedPath && doc.file.relativePath !== changedPath) return
-
-    const result = await window.api.readFile(workspace.rootPath, doc.file.relativePath)
-    if (!result.success || result.content === undefined || result.content === doc.content) return
-    syncExternalContent(result.content)
-  }, [workspace, doc.file, doc.dirty, doc.content, syncExternalContent])
+    if (!doc.file || doc.dirty) return
+    if (workspace) {
+      if (changedPath && doc.file.relativePath !== changedPath) return
+      const result = await window.api.readFile(workspace.rootPath, doc.file.relativePath)
+      if (!result.success || result.content === undefined || result.content === doc.content) return
+      syncExternalContent(result.content)
+    } else if (singleFile) {
+      const result = await window.api.readFileByPath(singleFile.absolutePath)
+      if (!result.success || result.content === undefined || result.content === doc.content) return
+      syncExternalContent(result.content)
+    }
+  }, [workspace, singleFile, doc.file, doc.dirty, doc.content, syncExternalContent])
 
   useEffect(() => {
     if (!workspace) return
@@ -176,7 +241,15 @@ function App(): React.JSX.Element {
   }, [workspace, refreshCurrentContent])
 
   useEffect(() => {
-    if (!workspace) return
+    if (!singleFile) return
+    const unsubscribe = window.api.onSingleFileContentChanged(() => {
+      void refreshCurrentContent()
+    })
+    return unsubscribe
+  }, [singleFile, refreshCurrentContent])
+
+  useEffect(() => {
+    if (!workspace && !singleFile) return
 
     const handleFocus = (): void => {
       void refreshCurrentContent()
@@ -191,7 +264,7 @@ function App(): React.JSX.Element {
       window.removeEventListener('focus', handleFocus)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [workspace, refreshCurrentContent])
+  }, [workspace, singleFile, refreshCurrentContent])
 
   useEffect(() => {
     if (doc.file && workspace) {
@@ -353,7 +426,8 @@ function App(): React.JSX.Element {
     [sidebarWidth]
   )
 
-  const workspaceShellState = getWorkspaceShellState(!!workspace, initialOpenPath)
+  const workspaceShellState = getWorkspaceShellState(!!workspace, singleFile, initialOpenPath)
+  const effectiveRootPath = workspace?.rootPath ?? singleFile?.dirPath ?? null
 
   return (
     <div className="app">
@@ -371,6 +445,9 @@ function App(): React.JSX.Element {
             </button>
             {isMenuOpen && (
               <div className="toolbar-menu-panel" role="menu">
+                <button className="toolbar-menu-item" type="button" role="menuitem" onClick={handleOpenSingleFile}>
+                  打开文件...
+                </button>
                 <button className="toolbar-menu-item" type="button" role="menuitem" onClick={handleOpenFolder}>
                   打开文件夹...
                 </button>
@@ -385,6 +462,11 @@ function App(): React.JSX.Element {
                     关闭文件夹
                   </button>
                 )}
+                {singleFile && (
+                  <button className="toolbar-menu-item" type="button" role="menuitem" onClick={handleCloseSingleFile}>
+                    关闭文件
+                  </button>
+                )}
                 <button className="toolbar-menu-item" type="button" role="menuitem" onClick={() => { setIsMenuOpen(false); window.api.windowControls.close() }}>
                   关闭窗口
                 </button>
@@ -395,7 +477,7 @@ function App(): React.JSX.Element {
             )}
           </div>
         </div>
-        <div className="toolbar-title">{workspace?.name ?? '笔记'}</div>
+        <div className="toolbar-title">{workspace?.name ?? singleFile?.name ?? '笔记'}</div>
         <div className="window-controls">
           <button
             className="window-control-button"
@@ -440,6 +522,7 @@ function App(): React.JSX.Element {
                 rootPath={workspace?.rootPath ?? null}
                 onRefreshFiles={handleRefreshFiles}
                 onCurrentFileRenamed={handleCurrentFileRenamed}
+                showFileTab={!singleFile}
               />
             </aside>
             <div className="resize-handle" onMouseDown={handleResizeMouseDown} />
@@ -462,7 +545,7 @@ function App(): React.JSX.Element {
                         key={documentPath}
                         source={doc.content}
                         currentFilePath={documentPath}
-                        workspaceRootPath={workspace?.rootPath ?? null}
+                        workspaceRootPath={effectiveRootPath}
                         files={files}
                         onOpenFile={handleOpenFile}
                         onRendered={setupObserver}
@@ -489,7 +572,7 @@ function App(): React.JSX.Element {
           <TerminalPanel
             terminal={terminal}
             dark={theme === 'dark'}
-            workspaceRoot={workspace?.rootPath ?? null}
+            workspaceRoot={effectiveRootPath}
           />
           <footer className="statusbar">
             <div className="statusbar-left" />
@@ -539,7 +622,7 @@ function App(): React.JSX.Element {
           </main>
         </div>
       ) : (
-        <WelcomePage onOpenFolder={handleOpenFolder} onOpenRecent={handleOpenRecent} />
+        <WelcomePage onOpenFolder={handleOpenFolder} onOpenFile={handleOpenSingleFile} onOpenRecent={handleOpenRecent} />
       )}
     </div>
   )

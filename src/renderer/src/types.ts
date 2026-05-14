@@ -25,3 +25,9 @@ export type Heading = {
   level: number
   text: string
 }
+
+export type SingleFileState = {
+  absolutePath: string
+  name: string
+  dirPath: string
+}

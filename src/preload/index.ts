@@ -16,11 +16,16 @@ const api = {
     }
   },
   openFolder: () => ipcRenderer.invoke('workspace:openFolder'),
+  openFileDialog: () => ipcRenderer.invoke('workspace:openFileDialog'),
   scanFiles: (rootPath: string) => ipcRenderer.invoke('workspace:scanFiles', rootPath),
   readFile: (rootPath: string, relativePath: string) =>
     ipcRenderer.invoke('workspace:readFile', rootPath, relativePath),
+  readFileByPath: (absolutePath: string) =>
+    ipcRenderer.invoke('workspace:readFileByPath', absolutePath),
   saveFile: (rootPath: string, relativePath: string, content: string) =>
     ipcRenderer.invoke('workspace:saveFile', rootPath, relativePath, content),
+  saveFileByPath: (absolutePath: string, content: string) =>
+    ipcRenderer.invoke('workspace:saveFileByPath', absolutePath, content),
   renameItem: (rootPath: string, relativePath: string, newName: string) =>
     ipcRenderer.invoke('workspace:renameItem', rootPath, relativePath, newName),
   createItem: (rootPath: string, parentRelativePath: string, name: string, type: 'file' | 'folder') =>
@@ -47,6 +52,8 @@ const api = {
     }>,
   watchWorkspace: (rootPath: string) => ipcRenderer.invoke('workspace:watch', rootPath),
   unwatchWorkspace: (rootPath: string) => ipcRenderer.invoke('workspace:unwatch', rootPath),
+  watchSingleFile: (absolutePath: string) => ipcRenderer.invoke('workspace:watchFile', absolutePath),
+  unwatchSingleFile: (absolutePath: string) => ipcRenderer.invoke('workspace:unwatchFile', absolutePath),
   onFilesChanged: (callback: () => void) => {
     const handler = () => callback()
     ipcRenderer.on('workspace:filesChanged', handler)
@@ -58,6 +65,11 @@ const api = {
     }
     ipcRenderer.on('workspace:fileContentChanged', handler)
     return () => ipcRenderer.removeListener('workspace:fileContentChanged', handler)
+  },
+  onSingleFileContentChanged: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('workspace:singleFileContentChanged', handler)
+    return () => ipcRenderer.removeListener('workspace:singleFileContentChanged', handler)
   },
   onBeforeClose: (callback: () => void) => {
     const handler = () => callback()
@@ -81,7 +93,7 @@ const api = {
   getInitialOpenPath: () => getInitialOpenPathFromArgv(process.argv),
   openPath: (folderPath: string) => ipcRenderer.invoke('workspace:openPath', folderPath),
   getRecentFolders: () => ipcRenderer.invoke('recent:getList'),
-  removeRecentFolder: (folderPath: string) => ipcRenderer.invoke('recent:remove', folderPath),
+  removeRecentFolder: (itemPath: string) => ipcRenderer.invoke('recent:remove', itemPath),
   clearRecentFolders: () => ipcRenderer.invoke('recent:clear'),
   onOpenPath: (callback: (path: string) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, path: string): void => {

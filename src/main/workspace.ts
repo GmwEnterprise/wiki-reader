@@ -349,3 +349,90 @@ export function unwatchWorkspace(
     watchers.delete(rootPath)
   }
 }
+
+export async function openFileDialog(): Promise<{ absolutePath: string; name: string; dirPath: string } | null> {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }]
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  const absolutePath = result.filePaths[0]
+  return {
+    absolutePath,
+    name: basename(absolutePath),
+    dirPath: dirname(absolutePath)
+  }
+}
+
+export async function readFileByPath(absolutePath: string): Promise<string> {
+  const normalizedPath = normalize(absolutePath)
+  return readFile(normalizedPath, 'utf-8')
+}
+
+export async function saveFileByPath(absolutePath: string, content: string): Promise<void> {
+  const normalizedPath = normalize(absolutePath)
+  const ext = extname(normalizedPath).toLowerCase()
+  if (!MD_EXTENSIONS.has(ext)) throw new Error(`不是 Markdown 文件: ${normalizedPath}`)
+  await writeFile(normalizedPath, content, 'utf-8')
+}
+
+type SingleFileWatchState = {
+  watcher: FSWatcher
+  subscribers: Set<() => void>
+  closed: boolean
+}
+
+const singleFileWatchers = new Map<string, SingleFileWatchState>()
+
+export function watchSingleFile(
+  absolutePath: string,
+  onChange: () => void
+): void {
+  const normalizedPath = normalize(absolutePath)
+  const existing = singleFileWatchers.get(normalizedPath)
+  if (existing && !existing.closed) {
+    existing.subscribers.add(onChange)
+    return
+  }
+
+  const watcher = chokidar.watch(normalizedPath, {
+    ignoreInitial: true,
+    awaitWriteFinish: {
+      stabilityThreshold: 300,
+      pollInterval: 100
+    }
+  })
+
+  const state: SingleFileWatchState = {
+    watcher,
+    subscribers: new Set([onChange]),
+    closed: false
+  }
+
+  watcher.on('change', () => {
+    if (state.closed) return
+    for (const subscriber of state.subscribers) {
+      subscriber()
+    }
+  })
+
+  singleFileWatchers.set(normalizedPath, state)
+}
+
+export function unwatchSingleFile(
+  absolutePath: string,
+  onChange?: () => void
+): void {
+  const normalizedPath = normalize(absolutePath)
+  const state = singleFileWatchers.get(normalizedPath)
+  if (!state) return
+
+  if (onChange) {
+    state.subscribers.delete(onChange)
+  }
+  if (state.subscribers.size > 0) return
+
+  state.closed = true
+  state.watcher.close()
+  singleFileWatchers.delete(normalizedPath)
+}

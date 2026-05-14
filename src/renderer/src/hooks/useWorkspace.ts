@@ -43,7 +43,7 @@ export function useWorkspace() {
 
   const openRecentFolder = useCallback(async (folderPath: string) => {
     const result = await window.api.openPath(folderPath)
-    if (!result) return
+    if (!result || result.type !== 'folder') return
 
     const openSeq = openSeqRef.current + 1
     openSeqRef.current = openSeq

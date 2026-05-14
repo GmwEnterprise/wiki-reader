@@ -12,14 +12,22 @@ declare global {
         onMaximizedChanged: (callback: (maximized: boolean) => void) => () => void
       }
       openFolder: () => Promise<{ rootPath: string; name: string } | null>
+      openFileDialog: () => Promise<{ absolutePath: string; name: string; dirPath: string } | null>
       scanFiles: (rootPath: string) => Promise<import('./types').WikiFile[]>
       readFile: (
         rootPath: string,
         relativePath: string
       ) => Promise<{ success: boolean; content?: string; error?: string }>
+      readFileByPath: (
+        absolutePath: string
+      ) => Promise<{ success: boolean; content?: string; error?: string }>
       saveFile: (
         rootPath: string,
         relativePath: string,
+        content: string
+      ) => Promise<{ success: boolean; error?: string }>
+      saveFileByPath: (
+        absolutePath: string,
         content: string
       ) => Promise<{ success: boolean; error?: string }>
       renameItem: (
@@ -55,8 +63,11 @@ declare global {
       ) => Promise<{ success: boolean; buffer?: ArrayBuffer; mimeType?: string; error?: string }>
       watchWorkspace: (rootPath: string) => Promise<void>
       unwatchWorkspace: (rootPath: string) => Promise<void>
+      watchSingleFile: (absolutePath: string) => Promise<void>
+      unwatchSingleFile: (absolutePath: string) => Promise<void>
       onFilesChanged: (callback: () => void) => () => void
       onFileContentChanged: (callback: (relativePath: string) => void) => () => void
+      onSingleFileContentChanged: (callback: () => void) => () => void
       onBeforeClose: (callback: () => void) => () => void
       confirmClose: () => void
       onMenuOpenFolder: (callback: () => void) => () => void
@@ -65,9 +76,15 @@ declare global {
       closeWorkspace: () => void
       quitApp: () => void
       getInitialOpenPath: () => string | null
-      openPath: (folderPath: string) => Promise<{ rootPath: string; name: string } | null>
-      getRecentFolders: () => Promise<Array<{ path: string; name: string; lastAccessed: number }>>
-      removeRecentFolder: (folderPath: string) => Promise<void>
+      openPath: (
+        itemPath: string
+      ) => Promise<
+        | { type: 'folder'; rootPath: string; name: string }
+        | { type: 'file'; absolutePath: string; name: string; dirPath: string }
+        | null
+      >
+      getRecentFolders: () => Promise<Array<{ path: string; name: string; type: 'file' | 'folder'; lastAccessed: number }>>
+      removeRecentFolder: (itemPath: string) => Promise<void>
       clearRecentFolders: () => Promise<void>
       onOpenPath: (callback: (path: string) => void) => () => void
       terminalCreate: (id: number, cwd: string | null) => Promise<{ error?: string; processName?: string } | null>

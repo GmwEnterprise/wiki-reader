@@ -18,6 +18,7 @@ type SidebarProps = {
   rootPath: string | null
   onRefreshFiles: () => void
   onCurrentFileRenamed?: (newRelativePath: string) => void
+  showFileTab?: boolean
 }
 
 export default function Sidebar({
@@ -32,21 +33,26 @@ export default function Sidebar({
   documentLoading,
   rootPath,
   onRefreshFiles,
-  onCurrentFileRenamed
+  onCurrentFileRenamed,
+  showFileTab = true
 }: SidebarProps) {
-  const [tab, setTab] = useState<SidebarTab>('files')
+  const [tab, setTab] = useState<SidebarTab>(showFileTab ? 'files' : 'headings')
+
+  const effectiveTab = showFileTab ? tab : 'headings'
 
   return (
     <>
       <div className="sidebar-tabs">
+        {showFileTab && (
+          <button
+            className={`sidebar-tab ${effectiveTab === 'files' ? 'sidebar-tab--active' : ''}`}
+            onClick={() => setTab('files')}
+          >
+            文件
+          </button>
+        )}
         <button
-          className={`sidebar-tab ${tab === 'files' ? 'sidebar-tab--active' : ''}`}
-          onClick={() => setTab('files')}
-        >
-          文件
-        </button>
-        <button
-          className={`sidebar-tab ${tab === 'headings' ? 'sidebar-tab--active' : ''}`}
+          className={`sidebar-tab ${effectiveTab === 'headings' ? 'sidebar-tab--active' : ''}`}
           onClick={() => setTab('headings')}
           disabled={!hasDocument}
         >
@@ -54,7 +60,7 @@ export default function Sidebar({
         </button>
       </div>
       <div className="sidebar-content">
-        {tab === 'files' ? (
+        {effectiveTab === 'files' ? (
           <FileList files={files} selectedPath={selectedPath} onSelect={onSelectFile} rootPath={rootPath} onRefreshFiles={onRefreshFiles} onCurrentFileRenamed={onCurrentFileRenamed} />
         ) : (
           <HeadingList

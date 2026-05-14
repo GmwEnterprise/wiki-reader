@@ -12,13 +12,13 @@
 - 应用启动：应用启动与单实例、应用 Shell 状态
 - 窗口管理：多窗口管理、窗口快捷键、自定义标题栏
 - IPC 通信：IPC 通信桥接
-- 工作区：工作区管理、文件变更监听、路径安全校验
+- 工作区：工作区管理、单文件模式、文件变更监听、路径安全校验
 - 侧栏：侧栏容器、文件树浏览、标题导航、侧栏拖拽调整宽度
 - 文档：文档加载与保存、CodeMirror 源码编辑器
 - Markdown 渲染：Markdown 渲染、图片资源加载
 - 主题：明暗主题切换
 - 终端：终端面板、终端实例、终端标签页管理
-- 最近文件夹：最近文件夹记录、Windows Jump List、欢迎页
+- 最近打开：最近打开记录、Windows Jump List、欢迎页
 
 ## 应用启动
 
@@ -31,7 +31,7 @@
 
 ### 应用 Shell 状态
 
-- 说明：根据工作区和初始打开路径决定显示工作区视图、加载中或欢迎页
+- 说明：根据工作区、单文件模式或初始打开路径决定显示工作区视图、加载中或欢迎页
 - 入口：`src/renderer/src/appShell.ts`
 - 核心：`src/renderer/src/appShell.ts`（`getWorkspaceShellState`）
 - 测试：`tests/unit/app-shell.test.ts`
@@ -71,9 +71,16 @@
 ### 工作区管理
 
 - 说明：打开文件夹对话框、扫描 Markdown 文件树、工作区打开/关闭
-- 入口：`src/main/ipc-handlers.ts:57-68`（`workspace:openFolder`）
+- 入口：`src/main/ipc-handlers.ts`（`workspace:openFolder`）
 - 核心：`src/main/workspace.ts`（扫描、读写）、`src/renderer/src/hooks/useWorkspace.ts`（渲染侧状态管理）
 - 测试：`tests/unit/workspace-asset.test.ts`
+
+### 单文件模式
+
+- 说明：打开单个 Markdown 文件（非文件夹），独立读写、监听外部修改、侧栏仅显示标题
+- 入口：`src/main/ipc-handlers.ts`（`workspace:openFileDialog`、`workspace:readFileByPath`、`workspace:saveFileByPath`、`workspace:watchFile`）
+- 核心：`src/main/workspace.ts`（`openFileDialog`、`readFileByPath`、`saveFileByPath`、`watchSingleFile`、`unwatchSingleFile`）、`src/renderer/src/App.tsx`（`singleFile` 状态管理）
+- 备注：图片基准路径为文件所在目录（`singleFile.dirPath`），不设 workspace
 
 ### 文件变更监听
 
@@ -92,9 +99,9 @@
 
 ### 侧栏容器
 
-- 说明：侧栏容器，包含"文件"和"标题"两个标签页切换
+- 说明：侧栏容器，包含"文件"和"标题"两个标签页切换；单文件模式下隐藏"文件"标签
 - 入口：`src/renderer/src/components/Sidebar.tsx`
-- 核心：`src/renderer/src/components/Sidebar.tsx`
+- 核心：`src/renderer/src/components/Sidebar.tsx`（`showFileTab` prop 控制文件标签可见性）
 
 ### 文件树浏览
 
@@ -120,7 +127,7 @@
 
 ### 文档加载与保存
 
-- 说明：文档状态管理（加载、脏标记、保存、模式切换），支持 CodeMirror 内容同步
+- 说明：文档状态管理（加载、脏标记、保存、模式切换），支持 CodeMirror 内容同步；workspace 模式和单文件模式使用不同读写路径
 - 入口：`src/renderer/src/hooks/useDocument.ts`
 - 核心：`src/renderer/src/hooks/useDocument.ts`（`loadContent`、`flushSave`、`markDirty`、`syncContent`）
 
@@ -185,23 +192,23 @@
 - 核心：`src/renderer/src/components/terminalTabActions.ts`（纯函数标签页状态管理）、`src/renderer/src/components/TerminalTabs.tsx`（标签栏 UI）、`src/renderer/src/hooks/useTerminalTabs.ts`（Hook 封装）
 - 测试：`tests/unit/terminal-tab-actions.test.ts`
 
-## 最近文件夹
+## 最近打开
 
-### 最近文件夹记录
+### 最近打开记录
 
-- 说明：记录最近打开的文件夹列表（最多 15 个），持久化到 JSON 文件
+- 说明：记录最近打开的文件和文件夹列表（最多 15 个），持久化到 JSON 文件，支持图标区分
 - 入口：`src/main/recent-folders.ts`
-- 核心：`src/main/recent-folders.ts`（`addRecentFolder`、`getRecentFolders`、`removeRecentFolder`）
-- 备注：存储在 `userData/recent-folders.json`
+- 核心：`src/main/recent-folders.ts`（`addRecentFolder`、`addRecentFile`、`getRecentItems`、`removeRecentItem`）
+- 备注：存储在 `userData/recent-folders.json`，`RecentItem` 含 `type: 'file' | 'folder'` 字段，旧数据向后兼容
 
 ### Windows Jump List
 
-- 说明：Windows 任务栏 Jump List 显示最近打开的文件夹（最多 10 个），点击可启动新窗口打开对应文件夹
-- 入口：`src/main/recent-folders.ts:68-87`（`refreshJumpList`）
+- 说明：Windows 任务栏 Jump List 显示最近打开的文件和文件夹（最多 10 个），点击可启动新窗口打开对应路径
+- 入口：`src/main/recent-folders.ts`（`refreshJumpList`）
 - 核心：`src/main/recent-folders.ts`（`refreshJumpList`）
 
 ### 欢迎页
 
-- 说明：未打开工作区时显示欢迎页，含"打开文件夹"按钮和最近文件夹列表
+- 说明：未打开工作区或文件时显示欢迎页，含"打开文件"和"打开文件夹"按钮，最近列表区分文件/文件夹图标
 - 入口：`src/renderer/src/components/WelcomePage.tsx`
 - 核心：`src/renderer/src/components/WelcomePage.tsx`
