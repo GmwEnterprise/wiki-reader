@@ -21,7 +21,7 @@ export function useWorkspace() {
 
   const openFolder = useCallback(async () => {
     const result = await window.api.openFolder()
-    if (!result) return
+    if (!result) return false
 
     const openSeq = openSeqRef.current + 1
     openSeqRef.current = openSeq
@@ -39,6 +39,7 @@ export function useWorkspace() {
     if (openSeq === openSeqRef.current) {
       window.api.watchWorkspace(result.rootPath)
     }
+    return true
   }, [refreshFiles])
 
   const openRecentFolder = useCallback(async (folderPath: string) => {

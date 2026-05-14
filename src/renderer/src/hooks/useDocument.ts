@@ -68,7 +68,7 @@ export function useDocument(workspaceRootPath: string | null) {
   }, [])
 
   const loadContent = useCallback(
-    async (file: WikiFile) => {
+    async (file: WikiFile, rootPathOverride = workspaceRootPath) => {
       const seq = ++loadSeqRef.current
       cancelAutoSave()
       const loadingDoc = {
@@ -82,8 +82,8 @@ export function useDocument(workspaceRootPath: string | null) {
       setDoc(loadingDoc)
 
       let result: { success: boolean; content?: string; error?: string }
-      if (workspaceRootPath) {
-        result = await window.api.readFile(workspaceRootPath, file.relativePath)
+      if (rootPathOverride) {
+        result = await window.api.readFile(rootPathOverride, file.relativePath)
       } else {
         result = await window.api.readFileByPath(file.relativePath)
       }

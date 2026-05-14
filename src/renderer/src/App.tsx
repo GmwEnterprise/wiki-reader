@@ -87,36 +87,42 @@ function App(): React.JSX.Element {
     openFileSeqRef.current += 1
     setIsMenuOpen(false)
     await flushCurrentEditorSave()
+    const opened = await openFolder()
+    if (!opened) return
     reset()
     if (singleFile) {
       window.api.unwatchSingleFile(singleFile.absolutePath)
       setSingleFile(null)
     }
-    await openFolder()
   }, [openFolder, reset, flushCurrentEditorSave, singleFile])
 
   const handleOpenRecent = useCallback(async (path: string) => {
     openFileSeqRef.current += 1
     await flushCurrentEditorSave()
+
+    const result = await window.api.openPath(path)
+    if (!result) return
+
     reset()
     if (singleFile) {
       window.api.unwatchSingleFile(singleFile.absolutePath)
       setSingleFile(null)
     }
 
-    const result = await window.api.openPath(path)
-    if (!result) return
-
     if (result.type === 'folder') {
       await openRecentFolder(path)
     } else {
+      if (workspace) {
+        closeWorkspace()
+        window.api.closeWorkspace()
+      }
       const sf: SingleFileState = { absolutePath: result.absolutePath, name: result.name, dirPath: result.dirPath }
       setSingleFile(sf)
       const file: WikiFile = { relativePath: result.absolutePath, name: result.name, mtimeMs: 0, size: 0 }
-      await loadContent(file)
+      await loadContent(file, null)
       window.api.watchSingleFile(result.absolutePath)
     }
-  }, [openRecentFolder, loadContent, reset, flushCurrentEditorSave, singleFile])
+  }, [openRecentFolder, loadContent, reset, flushCurrentEditorSave, singleFile, workspace, closeWorkspace])
 
   const handleCloseWorkspace = useCallback(async () => {
     openFileSeqRef.current += 1
@@ -135,6 +141,10 @@ function App(): React.JSX.Element {
     openFileSeqRef.current += 1
     setIsMenuOpen(false)
     await flushCurrentEditorSave()
+
+    const result = await window.api.openFileDialog()
+    if (!result) return
+
     reset()
     if (singleFile) {
       window.api.unwatchSingleFile(singleFile.absolutePath)
@@ -144,13 +154,10 @@ function App(): React.JSX.Element {
       window.api.closeWorkspace()
     }
 
-    const result = await window.api.openFileDialog()
-    if (!result) return
-
     const sf: SingleFileState = { absolutePath: result.absolutePath, name: result.name, dirPath: result.dirPath }
     setSingleFile(sf)
     const file: WikiFile = { relativePath: result.absolutePath, name: result.name, mtimeMs: 0, size: 0 }
-    await loadContent(file)
+    await loadContent(file, null)
     window.api.watchSingleFile(result.absolutePath)
   }, [flushCurrentEditorSave, reset, loadContent, singleFile, workspace, closeWorkspace])
 
