@@ -1,6 +1,6 @@
 {
   "name": "wiki-reader",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "本地 Markdown Wiki 阅读器",
   "main": "./out/main/index.js",
   "author": "wiki-reader",
