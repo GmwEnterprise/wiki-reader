@@ -74,11 +74,11 @@ pnpm build:win     # 打包为 Windows 安装包（NSIS .exe），输出到 dist
 pnpm build:unpack  # 打包为解压即用目录（不生成安装包），用于快速验证
 ```
 
-## 发布与版本更新（宿主机执行）
+## 发布与版本更新
 
 ### 前置准备
 
-安装 GitHub CLI 并登录：
+安装 GitHub CLI 并登录（宿主机执行）：
 
 ```powershell
 winget install --id GitHub.cli
@@ -87,21 +87,24 @@ gh auth login
 
 按提示选择 GitHub.com → HTTPS → 浏览器认证。
 
-### 首次发布
+### 发布流程
 
-```powershell
-pnpm build:win
-gh release create v1.0.0 dist/wiki-reader-1.0.0-setup.exe --title "v1.0.0" --notes "首次发布"
-```
+当用户要求发布新版本时，按以下步骤执行：
 
-### 版本更新
-
-1. 修改 `package.json` 中的 `version` 字段（如改为 `1.0.1`）
-2. 重新打包并发布：
-
-```powershell
-pnpm build:win
-gh release create v1.0.1 dist/wiki-reader-1.0.1-setup.exe --title "v1.0.1" --notes "更新说明"
-```
-
-建议发布前先用 `pnpm build:unpack` 打出解压版进行本地验证。
+1. **提交并推送代码**（由 AI 执行）：
+   - 检查是否有未提交的更改，如有则提交并推送到远程。
+2. **更新版本号**（由 AI 执行）：
+   - 根据用户指定或自动递增确定新版本号。
+   - 修改 `package.json` 中的 `version` 字段。
+   - 提交版本号变更并推送。
+3. **用户手动打包**（提示用户在宿主机 Windows 终端执行）：
+   ```powershell
+   pnpm build:win
+   ```
+   建议发布前先用 `pnpm build:unpack` 打出解压版进行本地验证。
+4. **用户手动创建 Release**（提示用户在宿主机执行）：
+   ```powershell
+   gh release create v<版本号> dist/wiki-reader-<版本号>-setup.exe --title "v<版本号>" --notes "更新说明"
+   ```
+5. **AI 执行后续操作**：
+   - 创建对应的 git tag 并推送：`git tag v<版本号> && git push origin v<版本号>`
