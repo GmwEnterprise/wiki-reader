@@ -7,6 +7,8 @@ import {
   readWorkspaceAsset,
   readAbsoluteImageFile,
   saveMarkdownFile,
+  renameItem,
+  deleteItem,
   watchWorkspace,
   unwatchWorkspace
 } from './workspace'
@@ -133,6 +135,26 @@ export function registerIpcHandlers(): void {
       return { success: false, error: err.message }
     }
   })
+
+  ipcMain.handle(
+    'workspace:renameItem',
+    async (_event, rootPath: string, relativePath: string, newName: string) => {
+      if (typeof rootPath !== 'string' || typeof relativePath !== 'string' || typeof newName !== 'string') {
+        return { success: false, error: '参数不合法' }
+      }
+      return renameItem(rootPath, relativePath, newName)
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:deleteItem',
+    async (_event, rootPath: string, relativePath: string) => {
+      if (typeof rootPath !== 'string' || typeof relativePath !== 'string') {
+        return { success: false, error: '参数不合法' }
+      }
+      return deleteItem(rootPath, relativePath)
+    }
+  )
 
   ipcMain.handle('workspace:watch', (event, rootPath: string) => {
     const win = BrowserWindow.fromWebContents(event.sender)

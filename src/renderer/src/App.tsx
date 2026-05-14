@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import type { WikiFile } from './types'
 import { useWorkspace } from './hooks/useWorkspace'
 import { useDocument } from './hooks/useDocument'
 import { useHeadings } from './hooks/useHeadings'
@@ -12,9 +13,9 @@ import WelcomePage from './components/WelcomePage'
 import { getWorkspaceShellState } from './appShell'
 
 function App(): React.JSX.Element {
-  const { workspace, files, openFolder, openRecentFolder, closeWorkspace } = useWorkspace()
+  const { workspace, files, openFolder, openRecentFolder, closeWorkspace, refreshFiles } = useWorkspace()
   const { theme, toggleTheme } = useTheme()
-  const { doc, loadContent, markDirty, syncContent, syncExternalContent, flushSave, setMode, reset } = useDocument(
+  const { doc, loadContent, markDirty, syncContent, syncExternalContent, flushSave, setMode, updateFilePath, reset } = useDocument(
     workspace?.rootPath ?? null
   )
   const documentPath = doc.file?.relativePath ?? null
@@ -42,6 +43,7 @@ function App(): React.JSX.Element {
   const contentBodyRef = useRef<HTMLDivElement>(null)
   const sourceEditorRef = useRef<SourceEditorHandle>(null)
   const openFileSeqRef = useRef(0)
+  const pendingRenameRef = useRef<string | null>(null)
 
   const flushCurrentEditorSave = useCallback(async () => {
     if (doc.mode !== 'source') {
@@ -188,6 +190,12 @@ function App(): React.JSX.Element {
 
   useEffect(() => {
     if (doc.file && workspace) {
+      if (pendingRenameRef.current === doc.file.relativePath) {
+        if (filePathSet.has(doc.file.relativePath)) {
+          pendingRenameRef.current = null
+        }
+        return
+      }
       if (!filePathSet.has(doc.file.relativePath)) {
         setError(`文件已被外部删除: ${doc.file.relativePath}`)
         reset()
@@ -242,6 +250,7 @@ function App(): React.JSX.Element {
 
   const handleOpenFile = useCallback(
     async (file: import('./types').WikiFile) => {
+      if (doc.file?.relativePath === file.relativePath) return
       const seq = ++openFileSeqRef.current
       setError(null)
       await flushCurrentEditorSave()
@@ -252,7 +261,7 @@ function App(): React.JSX.Element {
       }
       await loadContent(file)
     },
-    [loadContent, flushCurrentEditorSave]
+    [loadContent, flushCurrentEditorSave, doc.file]
   )
 
   const handleJumpHeading = useCallback(
@@ -271,6 +280,21 @@ function App(): React.JSX.Element {
     },
     [doc.mode, getHeadingLine, jumpToHeading, setActiveId]
   )
+
+  const handleRefreshFiles = useCallback(() => {
+    if (workspace) refreshFiles(workspace.rootPath)
+  }, [workspace, refreshFiles])
+
+  const handleCurrentFileRenamed = useCallback((newRelativePath: string) => {
+    if (!doc.file) return
+    if (contentBodyRef.current) {
+      scrollPositionRef.current = contentBodyRef.current.scrollTop
+    }
+    pendingRenameRef.current = newRelativePath
+    const name = newRelativePath.split(/[/\\]/).pop() ?? newRelativePath
+    const newFile: WikiFile = { relativePath: newRelativePath, name, mtimeMs: doc.file.mtimeMs, size: doc.file.size }
+    updateFilePath(newFile)
+  }, [doc.file, updateFilePath])
 
   useEffect(() => {
     if (doc.mode === 'preview' && doc.file && contentRef.current) {
@@ -404,6 +428,9 @@ function App(): React.JSX.Element {
                 hasDocument={!!doc.file}
                 documentPath={documentPath}
                 documentLoading={doc.loading}
+                rootPath={workspace?.rootPath ?? null}
+                onRefreshFiles={handleRefreshFiles}
+                onCurrentFileRenamed={handleCurrentFileRenamed}
               />
             </aside>
             <div className="resize-handle" onMouseDown={handleResizeMouseDown} />

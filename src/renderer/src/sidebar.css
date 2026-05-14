@@ -21,6 +21,31 @@
   --sidebar-scrollbar-thumb: var(--scrollbar-thumb);
   --sidebar-scrollbar-thumb-hover: var(--scrollbar-thumb-hover);
   --sidebar-action-hover-bg: var(--bg-hover);
+  --sidebar-context-menu-bg: var(--bg);
+  --sidebar-context-menu-border: var(--border);
+  --sidebar-context-menu-shadow: 0 4px 12px var(--menu-shadow);
+  --sidebar-context-menu-radius: 6px;
+  --sidebar-context-menu-padding: 4px;
+  --sidebar-context-menu-item-padding: 7px 14px;
+  --sidebar-context-menu-item-font-size: 13px;
+  --sidebar-context-menu-item-hover: var(--menu-item-hover);
+  --sidebar-dialog-overlay-bg: rgba(0, 0, 0, 0.4);
+  --sidebar-dialog-bg: var(--bg);
+  --sidebar-dialog-border: var(--border);
+  --sidebar-dialog-shadow: 0 8px 30px var(--menu-shadow);
+  --sidebar-dialog-radius: 8px;
+  --sidebar-dialog-padding: 20px;
+  --sidebar-dialog-title-font-size: 14px;
+  --sidebar-dialog-input-padding: 6px 10px;
+  --sidebar-dialog-input-border: var(--border);
+  --sidebar-dialog-input-focus-border: var(--accent);
+  --sidebar-dialog-input-radius: 4px;
+  --sidebar-dialog-btn-padding: 6px 16px;
+  --sidebar-dialog-btn-radius: 4px;
+  --sidebar-dialog-btn-font-size: 13px;
+  --sidebar-dialog-danger-bg: #e81123;
+  --sidebar-dialog-danger-text: #fff;
+  --sidebar-dialog-danger-hover: #d01020;
 }
 
 .sidebar {
@@ -234,5 +259,137 @@
 
 .sidebar-content::-webkit-scrollbar-thumb:hover {
   background: var(--sidebar-scrollbar-thumb-hover);
+}
+
+.file-context-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 140px;
+  padding: var(--sidebar-context-menu-padding);
+  background: var(--sidebar-context-menu-bg);
+  border: 1px solid var(--sidebar-context-menu-border);
+  border-radius: var(--sidebar-context-menu-radius);
+  box-shadow: var(--sidebar-context-menu-shadow);
+}
+
+.file-context-menu-item {
+  display: block;
+  width: 100%;
+  padding: var(--sidebar-context-menu-item-padding);
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--sidebar-context-menu-item-font-size);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.file-context-menu-item:hover {
+  background: var(--sidebar-context-menu-item-hover);
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sidebar-dialog-overlay-bg);
+}
+
+.dialog {
+  min-width: 320px;
+  max-width: 420px;
+  padding: var(--sidebar-dialog-padding);
+  background: var(--sidebar-dialog-bg);
+  border: 1px solid var(--sidebar-dialog-border);
+  border-radius: var(--sidebar-dialog-radius);
+  box-shadow: var(--sidebar-dialog-shadow);
+}
+
+.dialog-title {
+  font-size: var(--sidebar-dialog-title-font-size);
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+.dialog-body {
+  margin-bottom: 16px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dialog-input {
+  width: 100%;
+  padding: var(--sidebar-dialog-input-padding);
+  border: 1px solid var(--sidebar-dialog-input-border);
+  border-radius: var(--sidebar-dialog-input-radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  margin-bottom: 4px;
+}
+
+.dialog-input:focus {
+  border-color: var(--sidebar-dialog-input-focus-border);
+}
+
+.dialog-error {
+  font-size: 12px;
+  color: #f87171;
+  min-height: 18px;
+  margin-bottom: 12px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dialog-btn {
+  padding: var(--sidebar-dialog-btn-padding);
+  border: 1px solid var(--sidebar-dialog-border);
+  border-radius: var(--sidebar-dialog-btn-radius);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--sidebar-dialog-btn-font-size);
+  cursor: pointer;
+}
+
+.dialog-btn:hover {
+  background: var(--bg-hover);
+}
+
+.dialog-btn--primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.dialog-btn--primary:hover {
+  opacity: 0.9;
+}
+
+.dialog-btn--primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dialog-btn--danger {
+  background: var(--sidebar-dialog-danger-bg);
+  color: var(--sidebar-dialog-danger-text);
+  border-color: var(--sidebar-dialog-danger-bg);
+}
+
+.dialog-btn--danger:hover {
+  background: var(--sidebar-dialog-danger-hover);
+  border-color: var(--sidebar-dialog-danger-hover);
 }
 

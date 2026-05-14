@@ -157,6 +157,14 @@ export function useDocument(workspaceRootPath: string | null) {
     setDoc((prev) => ({ ...prev, mode }))
   }, [])
 
+  const updateFilePath = useCallback((newFile: WikiFile) => {
+    setDoc((prev) => {
+      const next = { ...prev, file: newFile }
+      docRef.current = next
+      return next
+    })
+  }, [])
+
   const reset = useCallback(() => {
     cancelAutoSave()
     loadSeqRef.current += 1
@@ -173,5 +181,5 @@ export function useDocument(workspaceRootPath: string | null) {
     setDoc(next)
   }, [cancelAutoSave])
 
-  return { doc, loadContent, markDirty, syncContent, syncExternalContent, flushSave, setMode, reset }
+  return { doc, loadContent, markDirty, syncContent, syncExternalContent, flushSave, setMode, updateFilePath, reset }
 }

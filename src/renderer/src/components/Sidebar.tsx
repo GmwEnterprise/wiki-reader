@@ -15,6 +15,9 @@ type SidebarProps = {
   hasDocument: boolean
   documentPath: string | null
   documentLoading: boolean
+  rootPath: string | null
+  onRefreshFiles: () => void
+  onCurrentFileRenamed?: (newRelativePath: string) => void
 }
 
 export default function Sidebar({
@@ -26,7 +29,10 @@ export default function Sidebar({
   onJumpHeading,
   hasDocument,
   documentPath,
-  documentLoading
+  documentLoading,
+  rootPath,
+  onRefreshFiles,
+  onCurrentFileRenamed
 }: SidebarProps) {
   const [tab, setTab] = useState<SidebarTab>('files')
 
@@ -49,7 +55,7 @@ export default function Sidebar({
       </div>
       <div className="sidebar-content">
         {tab === 'files' ? (
-          <FileList files={files} selectedPath={selectedPath} onSelect={onSelectFile} />
+          <FileList files={files} selectedPath={selectedPath} onSelect={onSelectFile} rootPath={rootPath} onRefreshFiles={onRefreshFiles} onCurrentFileRenamed={onCurrentFileRenamed} />
         ) : (
           <HeadingList
             key={documentPath ?? 'empty'}

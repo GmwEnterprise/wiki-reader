@@ -82,5 +82,5 @@ export function useWorkspace() {
     }
   }, [workspace, refreshFiles])
 
-  return { workspace, files, openFolder, openRecentFolder, closeWorkspace }
+  return { workspace, files, openFolder, openRecentFolder, closeWorkspace, refreshFiles }
 }

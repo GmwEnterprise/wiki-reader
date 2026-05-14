@@ -22,6 +22,15 @@ declare global {
         relativePath: string,
         content: string
       ) => Promise<{ success: boolean; error?: string }>
+      renameItem: (
+        rootPath: string,
+        relativePath: string,
+        newName: string
+      ) => Promise<{ success: boolean; newRelativePath?: string; error?: string }>
+      deleteItem: (
+        rootPath: string,
+        relativePath: string
+      ) => Promise<{ success: boolean; error?: string }>
       readAsset: (
         rootPath: string,
         relativePath: string

@@ -21,6 +21,10 @@ const api = {
     ipcRenderer.invoke('workspace:readFile', rootPath, relativePath),
   saveFile: (rootPath: string, relativePath: string, content: string) =>
     ipcRenderer.invoke('workspace:saveFile', rootPath, relativePath, content),
+  renameItem: (rootPath: string, relativePath: string, newName: string) =>
+    ipcRenderer.invoke('workspace:renameItem', rootPath, relativePath, newName),
+  deleteItem: (rootPath: string, relativePath: string) =>
+    ipcRenderer.invoke('workspace:deleteItem', rootPath, relativePath),
   readAsset: (rootPath: string, relativePath: string) =>
     ipcRenderer.invoke('workspace:readAsset', rootPath, relativePath) as Promise<{
       success: boolean

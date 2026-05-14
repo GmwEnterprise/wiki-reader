@@ -1,6 +1,6 @@
 import { dialog } from 'electron'
-import { readdir, stat, readFile, writeFile } from 'fs/promises'
-import { join, extname, basename, relative, normalize, sep } from 'path'
+import { readdir, stat, readFile, writeFile, rename, unlink, rm } from 'fs/promises'
+import { join, extname, basename, relative, normalize, sep, dirname } from 'path'
 import chokidar from 'chokidar'
 import type { FSWatcher } from 'chokidar'
 import type { WikiFile } from '../renderer/src/types'
@@ -135,6 +135,59 @@ export async function validatePath(rootPath: string, targetPath: string): Promis
   const normalizedTarget = normalize(targetPath)
   const normalizedRoot = normalize(rootPath)
   return normalizedTarget.startsWith(normalizedRoot + sep) || normalizedTarget === normalizedRoot
+}
+
+export async function renameItem(
+  rootPath: string,
+  relativePath: string,
+  newName: string
+): Promise<{ success: boolean; newRelativePath?: string; error?: string }> {
+  const fullPath = join(rootPath, relativePath)
+  const valid = await validatePath(rootPath, fullPath)
+  if (!valid) return { success: false, error: '路径不合法' }
+
+  if (
+    !newName ||
+    newName.includes('/') ||
+    newName.includes('\\') ||
+    newName.includes(':')
+  ) {
+    return { success: false, error: '文件名不合法' }
+  }
+
+  const parentDir = dirname(relativePath)
+  const newRelativePath = parentDir ? parentDir + '/' + newName : newName
+  const newFullPath = join(rootPath, newRelativePath)
+  const newValid = await validatePath(rootPath, newFullPath)
+  if (!newValid) return { success: false, error: '新路径不合法' }
+
+  try {
+    await rename(fullPath, newFullPath)
+    return { success: true, newRelativePath }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+export async function deleteItem(
+  rootPath: string,
+  relativePath: string
+): Promise<{ success: boolean; error?: string }> {
+  const fullPath = join(rootPath, relativePath)
+  const valid = await validatePath(rootPath, fullPath)
+  if (!valid) return { success: false, error: '路径不合法' }
+
+  try {
+    const s = await stat(fullPath)
+    if (s.isDirectory()) {
+      await rm(fullPath, { recursive: true })
+    } else {
+      await unlink(fullPath)
+    }
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
 }
 
 export function watchWorkspace(
