@@ -192,7 +192,7 @@ export default function MarkdownView({
 
     if (isLocalLink(href) && currentFilePath) {
       const resolvedPath = resolveRelativePath(currentFilePath, href)
-      const targetFile = files.find((f) => normalizePath(f.relativePath) === resolvedPath)
+      const targetFile = files.find((f) => !f.isDirectory && normalizePath(f.relativePath) === resolvedPath)
       if (targetFile) {
         onOpenFile(targetFile)
       }

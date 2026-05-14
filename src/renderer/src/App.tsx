@@ -151,7 +151,10 @@ function App(): React.JSX.Element {
     })
   }, [])
 
-  const filePathSet = useMemo(() => new Set(files.map((f) => f.relativePath)), [files])
+  const filePathSet = useMemo(
+    () => new Set(files.filter((f) => !f.isDirectory).map((f) => f.relativePath)),
+    [files]
+  )
 
   const refreshCurrentContent = useCallback(async (changedPath?: string) => {
     if (!workspace || !doc.file || doc.dirty) return

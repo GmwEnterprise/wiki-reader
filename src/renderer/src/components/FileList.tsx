@@ -4,6 +4,7 @@ import type { WikiFile } from '../types'
 export type FileTreeNode = {
   name: string
   relativePath: string
+  isDirectory: boolean
   file?: WikiFile
   children: FileTreeNode[]
 }
@@ -31,12 +32,28 @@ export function buildFileTree(files: WikiFile[]): FileTreeNode[] {
     let currentMap = rootMap
     let prefix = ''
 
+    if (file.isDirectory) {
+      for (const dirName of parts) {
+        prefix = prefix ? prefix + '/' + dirName : dirName
+        let existing = currentMap.get(dirName)
+        if (!existing) {
+          existing = { name: dirName, relativePath: prefix, isDirectory: true, children: [] }
+          currentMap.set(dirName, existing)
+          currentList.push(existing)
+          childrenMapCache.set(existing, new Map())
+        }
+        currentList = existing.children
+        currentMap = getOrCreateChildrenMap(existing)
+      }
+      continue
+    }
+
     for (let i = 0; i < parts.length - 1; i++) {
       const dirName = parts[i]
       prefix = prefix ? prefix + '/' + dirName : dirName
       let existing = currentMap.get(dirName)
       if (!existing) {
-        existing = { name: dirName, relativePath: prefix, children: [] }
+        existing = { name: dirName, relativePath: prefix, isDirectory: true, children: [] }
         currentMap.set(dirName, existing)
         currentList.push(existing)
         const childMap = new Map<string, FileTreeNode>()
@@ -51,6 +68,7 @@ export function buildFileTree(files: WikiFile[]): FileTreeNode[] {
     const leafNode: FileTreeNode = {
       name: file.name,
       relativePath: file.relativePath,
+      isDirectory: false,
       file,
       children: []
     }
@@ -66,8 +84,8 @@ function sortTree(nodes: FileTreeNode[]): void {
     sortTree(node.children)
   }
   nodes.sort((a, b) => {
-    const aIsDir = a.children.length > 0
-    const bIsDir = b.children.length > 0
+    const aIsDir = a.isDirectory
+    const bIsDir = b.isDirectory
     if (aIsDir !== bIsDir) return aIsDir ? -1 : 1
     return a.name.localeCompare(b.name)
   })
@@ -76,7 +94,7 @@ function sortTree(nodes: FileTreeNode[]): void {
 export function collectDirectoryPaths(nodes: FileTreeNode[]): string[] {
   const paths: string[] = []
   for (const node of nodes) {
-    if (node.children.length > 0) {
+    if (node.isDirectory) {
       paths.push(node.relativePath)
     }
     paths.push(...collectDirectoryPaths(node.children))
@@ -125,7 +143,7 @@ const BUFFER_ROWS = 5
 type ContextMenuState = {
   x: number
   y: number
-  node: FileTreeNode
+  node: FileTreeNode | null
 }
 
 type RenameState = {
@@ -136,6 +154,11 @@ type RenameState = {
 
 type DeleteState = {
   node: FileTreeNode
+}
+
+type CreateState = {
+  parentRelativePath: string
+  type: 'file' | 'folder'
 }
 
 type FileListProps = {
@@ -161,6 +184,10 @@ export default function FileList({ files, selectedPath, onSelect, rootPath, onRe
   const [renameInput, setRenameInput] = useState('')
   const [renameError, setRenameError] = useState('')
   const [renameBusy, setRenameBusy] = useState(false)
+  const [createState, setCreateState] = useState<CreateState | null>(null)
+  const [createInput, setCreateInput] = useState('')
+  const [createError, setCreateError] = useState('')
+  const [createBusy, setCreateBusy] = useState(false)
   const [deleteState, setDeleteState] = useState<DeleteState | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const renameInputRef = useRef<HTMLInputElement>(null)
@@ -275,14 +302,14 @@ export default function FileList({ files, selectedPath, onSelect, rootPath, onRe
   }, [contextMenu])
 
   useEffect(() => {
-    if (renameState) {
+    if (renameState || createState) {
       const input = renameInputRef.current
       if (input) {
         input.focus()
         input.select()
       }
     }
-  }, [renameState])
+  }, [renameState, createState])
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, node: FileTreeNode) => {
@@ -294,10 +321,28 @@ export default function FileList({ files, selectedPath, onSelect, rootPath, onRe
     [rootPath]
   )
 
-  const handleRenameClick = useCallback(() => {
+  const handleBlankContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!rootPath) return
+      e.preventDefault()
+      setContextMenu({ x: e.clientX, y: e.clientY, node: null })
+    },
+    [rootPath]
+  )
+
+  const handleCreateClick = useCallback((type: 'file' | 'folder') => {
     if (!contextMenu) return
+    const parentRelativePath = contextMenu.node?.isDirectory ? contextMenu.node.relativePath : ''
+    setCreateState({ parentRelativePath, type })
+    setCreateInput('')
+    setCreateError('')
+    setContextMenu(null)
+  }, [contextMenu])
+
+  const handleRenameClick = useCallback(() => {
+    if (!contextMenu || !contextMenu.node) return
     const node = contextMenu.node
-    const isDir = node.children.length > 0
+    const isDir = node.isDirectory
     const lastDot = node.name.lastIndexOf('.')
     const ext = !isDir && lastDot > 0 ? node.name.slice(lastDot) : ''
     const baseName = !isDir && lastDot > 0 ? node.name.slice(0, lastDot) : node.name
@@ -308,10 +353,65 @@ export default function FileList({ files, selectedPath, onSelect, rootPath, onRe
   }, [contextMenu])
 
   const handleDeleteClick = useCallback(() => {
-    if (!contextMenu) return
+    if (!contextMenu || !contextMenu.node) return
     setDeleteState({ node: contextMenu.node })
     setContextMenu(null)
   }, [contextMenu])
+
+  const handleCopyPathClick = useCallback(async (pathType: 'absolute' | 'relative') => {
+    if (!contextMenu || !rootPath) return
+    await window.api.copyItemPath(rootPath, contextMenu.node?.relativePath ?? '', pathType)
+    setContextMenu(null)
+  }, [contextMenu, rootPath])
+
+  const handleRevealClick = useCallback(async () => {
+    if (!contextMenu || !rootPath) return
+    await window.api.revealItem(rootPath, contextMenu.node?.relativePath ?? '')
+    setContextMenu(null)
+  }, [contextMenu, rootPath])
+
+  const handleCreateConfirm = useCallback(async () => {
+    if (!createState || !rootPath || createBusy) return
+    if (!createInput.trim()) {
+      setCreateError('名称不能为空')
+      return
+    }
+    setCreateBusy(true)
+    setCreateError('')
+    const result = await window.api.createItem(
+      rootPath,
+      createState.parentRelativePath,
+      createInput,
+      createState.type
+    )
+    setCreateBusy(false)
+    if (result.success) {
+      setCreateState(null)
+      if (createState.parentRelativePath) {
+        setCollapsed((prev) => {
+          if (!prev.has(createState.parentRelativePath)) return prev
+          const next = new Set(prev)
+          next.delete(createState.parentRelativePath)
+          return next
+        })
+      }
+      onRefreshFiles()
+    } else {
+      setCreateError(result.error ?? '创建失败')
+    }
+  }, [createState, rootPath, createBusy, createInput, onRefreshFiles])
+
+  const handleCreateKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        handleCreateConfirm()
+      } else if (e.key === 'Escape') {
+        setCreateState(null)
+      }
+    },
+    [handleCreateConfirm]
+  )
 
   const handleRenameConfirm = useCallback(async () => {
     if (!renameState || !rootPath || renameBusy) return
@@ -394,11 +494,12 @@ export default function FileList({ files, selectedPath, onSelect, rootPath, onRe
         ref={scrollContainerRef}
         className="file-list-scroll"
         onScroll={handleScroll}
+        onContextMenu={handleBlankContextMenu}
       >
         <div style={{ height: totalHeight, position: 'relative' }}>
           {visibleNodes.slice(startIndex, endIndex).map((item, i) => {
             const { node, depth } = item
-            const isDir = node.children.length > 0
+            const isDir = node.isDirectory
             const isSelected = node.relativePath === selectedPath
             const isCollapsed = collapsed.has(node.relativePath)
             return (
@@ -435,12 +536,75 @@ export default function FileList({ files, selectedPath, onSelect, rootPath, onRe
           className="file-context-menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <button className="file-context-menu-item" type="button" onClick={handleRenameClick}>
-            重命名
+          {(!contextMenu.node || contextMenu.node.isDirectory) && (
+            <>
+              <button className="file-context-menu-item" type="button" onClick={() => handleCreateClick('file')}>
+                新建文档
+              </button>
+              <button className="file-context-menu-item" type="button" onClick={() => handleCreateClick('folder')}>
+                新建文件夹
+              </button>
+            </>
+          )}
+          {contextMenu.node && (
+            <>
+              <button className="file-context-menu-item" type="button" onClick={handleRenameClick}>
+                重命名
+              </button>
+              <button className="file-context-menu-item" type="button" onClick={handleDeleteClick}>
+                删除
+              </button>
+            </>
+          )}
+          <button className="file-context-menu-item" type="button" onClick={() => handleCopyPathClick('absolute')}>
+            复制文件路径
           </button>
-          <button className="file-context-menu-item" type="button" onClick={handleDeleteClick}>
-            删除
+          <button className="file-context-menu-item" type="button" onClick={() => handleCopyPathClick('relative')}>
+            复制文件相对路径
           </button>
+          <button className="file-context-menu-item" type="button" onClick={handleRevealClick}>
+            在资源管理器中查看
+          </button>
+        </div>
+      )}
+      {createState && (
+        <div className="dialog-overlay" onClick={() => { if (!createBusy) setCreateState(null) }}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="dialog-title">{createState.type === 'file' ? '新建文档' : '新建文件夹'}</div>
+            <input
+              ref={renameInputRef}
+              className="dialog-input"
+              value={createInput}
+              onChange={(e) => setCreateInput(e.target.value)}
+              onKeyDown={handleCreateKeyDown}
+              disabled={createBusy}
+              spellCheck={false}
+            />
+            {createState.type === 'file' && (
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                未输入扩展名时自动使用 .md
+              </div>
+            )}
+            <div className="dialog-error">{createError}</div>
+            <div className="dialog-actions">
+              <button
+                className="dialog-btn"
+                type="button"
+                onClick={() => setCreateState(null)}
+                disabled={createBusy}
+              >
+                取消
+              </button>
+              <button
+                className="dialog-btn dialog-btn--primary"
+                type="button"
+                onClick={handleCreateConfirm}
+                disabled={createBusy || !createInput.trim()}
+              >
+                确认
+              </button>
+            </div>
+          </div>
         </div>
       )}
       {renameState && (

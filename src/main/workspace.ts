@@ -1,5 +1,5 @@
-import { dialog } from 'electron'
-import { readdir, stat, readFile, writeFile, rename, unlink, rm } from 'fs/promises'
+import { clipboard, dialog, shell } from 'electron'
+import { readdir, stat, readFile, writeFile, rename, unlink, rm, mkdir } from 'fs/promises'
 import { join, extname, basename, relative, normalize, sep, dirname } from 'path'
 import chokidar from 'chokidar'
 import type { FSWatcher } from 'chokidar'
@@ -57,6 +57,14 @@ async function walkDir(rootPath: string, currentPath: string, files: WikiFile[])
 
     if (entry.isDirectory()) {
       dirs.push(fullPath)
+      const s = await stat(fullPath)
+      files.push({
+        relativePath: relative(rootPath, fullPath),
+        name: entry.name,
+        mtimeMs: s.mtimeMs,
+        size: 0,
+        isDirectory: true
+      })
     } else if (entry.isFile()) {
       const ext = extname(entry.name).toLowerCase()
       if (MD_EXTENSIONS.has(ext)) {
@@ -169,6 +177,71 @@ export async function renameItem(
   }
 }
 
+function isInvalidItemName(name: string): boolean {
+  return !name || name.includes('/') || name.includes('\\') || name.includes(':')
+}
+
+function normalizeMarkdownFileName(name: string): string {
+  const ext = extname(name).toLowerCase()
+  if (MD_EXTENSIONS.has(ext)) return name
+  return name + '.md'
+}
+
+export async function createItem(
+  rootPath: string,
+  parentRelativePath: string,
+  name: string,
+  type: 'file' | 'folder'
+): Promise<{ success: boolean; newRelativePath?: string; error?: string }> {
+  const parentFullPath = join(rootPath, parentRelativePath)
+  const parentValid = await validatePath(rootPath, parentFullPath)
+  if (!parentValid) return { success: false, error: '路径不合法' }
+
+  const itemName = type === 'file' ? normalizeMarkdownFileName(name.trim()) : name.trim()
+  if (isInvalidItemName(itemName)) return { success: false, error: '名称不合法' }
+
+  const newRelativePath = parentRelativePath ? parentRelativePath + '/' + itemName : itemName
+  const fullPath = join(rootPath, newRelativePath)
+  const valid = await validatePath(rootPath, fullPath)
+  if (!valid) return { success: false, error: '新路径不合法' }
+
+  try {
+    if (type === 'folder') {
+      await mkdir(fullPath)
+    } else {
+      await writeFile(fullPath, '', { encoding: 'utf-8', flag: 'wx' })
+    }
+    return { success: true, newRelativePath }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+}
+
+export async function copyItemPath(
+  rootPath: string,
+  relativePath: string,
+  pathType: 'absolute' | 'relative'
+): Promise<{ success: boolean; error?: string }> {
+  const fullPath = join(rootPath, relativePath)
+  const valid = await validatePath(rootPath, fullPath)
+  if (!valid) return { success: false, error: '路径不合法' }
+
+  clipboard.writeText(pathType === 'absolute' ? fullPath : relativePath)
+  return { success: true }
+}
+
+export async function revealItem(
+  rootPath: string,
+  relativePath: string
+): Promise<{ success: boolean; error?: string }> {
+  const fullPath = join(rootPath, relativePath)
+  const valid = await validatePath(rootPath, fullPath)
+  if (!valid) return { success: false, error: '路径不合法' }
+
+  shell.showItemInFolder(fullPath)
+  return { success: true }
+}
+
 export async function deleteItem(
   rootPath: string,
   relativePath: string
@@ -202,7 +275,7 @@ export function watchWorkspace(
     return
   }
 
-  const watcher = chokidar.watch(['**/*.md', '**/*.markdown'], {
+  const watcher = chokidar.watch(['**/*.md', '**/*.markdown', '**/*/'], {
     cwd: rootPath,
     ignored: ['**/node_modules/**', '**/.git/**', '**/.*'],
     ignoreInitial: true
@@ -238,6 +311,8 @@ export function watchWorkspace(
 
   watcher.on('add', () => scheduleChange(true))
   watcher.on('unlink', () => scheduleChange(true))
+  watcher.on('addDir', () => scheduleChange(true))
+  watcher.on('unlinkDir', () => scheduleChange(true))
   watcher.on('change', (changedPath: string) => {
     scheduleChange(false)
     if (state.contentSubscribers.size > 0) {

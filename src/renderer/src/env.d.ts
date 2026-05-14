@@ -27,6 +27,21 @@ declare global {
         relativePath: string,
         newName: string
       ) => Promise<{ success: boolean; newRelativePath?: string; error?: string }>
+      createItem: (
+        rootPath: string,
+        parentRelativePath: string,
+        name: string,
+        type: 'file' | 'folder'
+      ) => Promise<{ success: boolean; newRelativePath?: string; error?: string }>
+      copyItemPath: (
+        rootPath: string,
+        relativePath: string,
+        pathType: 'absolute' | 'relative'
+      ) => Promise<{ success: boolean; error?: string }>
+      revealItem: (
+        rootPath: string,
+        relativePath: string
+      ) => Promise<{ success: boolean; error?: string }>
       deleteItem: (
         rootPath: string,
         relativePath: string

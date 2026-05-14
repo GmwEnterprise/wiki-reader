@@ -9,6 +9,7 @@ export type WikiFile = {
   name: string
   mtimeMs: number
   size: number
+  isDirectory?: boolean
 }
 
 export type DocumentState = {

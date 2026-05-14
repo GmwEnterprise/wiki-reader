@@ -23,6 +23,12 @@ const api = {
     ipcRenderer.invoke('workspace:saveFile', rootPath, relativePath, content),
   renameItem: (rootPath: string, relativePath: string, newName: string) =>
     ipcRenderer.invoke('workspace:renameItem', rootPath, relativePath, newName),
+  createItem: (rootPath: string, parentRelativePath: string, name: string, type: 'file' | 'folder') =>
+    ipcRenderer.invoke('workspace:createItem', rootPath, parentRelativePath, name, type),
+  copyItemPath: (rootPath: string, relativePath: string, pathType: 'absolute' | 'relative') =>
+    ipcRenderer.invoke('workspace:copyItemPath', rootPath, relativePath, pathType),
+  revealItem: (rootPath: string, relativePath: string) =>
+    ipcRenderer.invoke('workspace:revealItem', rootPath, relativePath),
   deleteItem: (rootPath: string, relativePath: string) =>
     ipcRenderer.invoke('workspace:deleteItem', rootPath, relativePath),
   readAsset: (rootPath: string, relativePath: string) =>

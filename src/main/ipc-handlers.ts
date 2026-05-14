@@ -8,6 +8,9 @@ import {
   readAbsoluteImageFile,
   saveMarkdownFile,
   renameItem,
+  createItem,
+  copyItemPath,
+  revealItem,
   deleteItem,
   watchWorkspace,
   unwatchWorkspace
@@ -153,6 +156,45 @@ export function registerIpcHandlers(): void {
         return { success: false, error: '参数不合法' }
       }
       return deleteItem(rootPath, relativePath)
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:createItem',
+    async (_event, rootPath: string, parentRelativePath: string, name: string, type: 'file' | 'folder') => {
+      if (
+        typeof rootPath !== 'string' ||
+        typeof parentRelativePath !== 'string' ||
+        typeof name !== 'string' ||
+        (type !== 'file' && type !== 'folder')
+      ) {
+        return { success: false, error: '参数不合法' }
+      }
+      return createItem(rootPath, parentRelativePath, name, type)
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:copyItemPath',
+    async (_event, rootPath: string, relativePath: string, pathType: 'absolute' | 'relative') => {
+      if (
+        typeof rootPath !== 'string' ||
+        typeof relativePath !== 'string' ||
+        (pathType !== 'absolute' && pathType !== 'relative')
+      ) {
+        return { success: false, error: '参数不合法' }
+      }
+      return copyItemPath(rootPath, relativePath, pathType)
+    }
+  )
+
+  ipcMain.handle(
+    'workspace:revealItem',
+    async (_event, rootPath: string, relativePath: string) => {
+      if (typeof rootPath !== 'string' || typeof relativePath !== 'string') {
+        return { success: false, error: '参数不合法' }
+      }
+      return revealItem(rootPath, relativePath)
     }
   )
 

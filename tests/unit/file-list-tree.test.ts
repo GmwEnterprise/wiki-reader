@@ -20,6 +20,16 @@ describe('FileList tree helpers', () => {
     expect(collectDirectoryPaths(tree)).toEqual(['guides', 'guides/deploy'])
   })
 
+  it('保留空目录节点', () => {
+    const tree = buildFileTree([
+      ...files,
+      { relativePath: 'empty', name: 'empty', mtimeMs: 4, size: 0, isDirectory: true }
+    ])
+
+    expect(collectDirectoryPaths(tree)).toEqual(['empty', 'guides', 'guides/deploy'])
+    expect(flattenVisibleNodes(tree, new Set()).map(n => n.node.name)).toContain('empty')
+  })
+
   it('文件树从空列表更新为非空列表时新增目录默认折叠', () => {
     const previousTree = buildFileTree([])
     const nextTree = buildFileTree(files)

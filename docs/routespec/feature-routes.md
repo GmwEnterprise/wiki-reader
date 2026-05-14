@@ -98,7 +98,7 @@
 
 ### 文件树浏览
 
-- 说明：Markdown 文件的树形列表展示，支持展开/折叠目录、虚拟滚动、全部展开/折叠、右键菜单（重命名/删除）
+- 说明：Markdown 文件和目录的树形列表展示，支持展开/折叠目录、虚拟滚动、全部展开/折叠、右键菜单（新建文档/文件夹、重命名/删除、复制路径、资源管理器查看）
 - 入口：`src/renderer/src/components/FileList.tsx`
 - 核心：`src/renderer/src/components/FileList.tsx`（`buildFileTree`、`flattenVisibleNodes`、虚拟滚动、右键菜单、重命名弹窗、删除确认弹窗）
 - 测试：`tests/unit/file-list-tree.test.ts`
